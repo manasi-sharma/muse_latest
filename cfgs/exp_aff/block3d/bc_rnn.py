@@ -25,13 +25,15 @@ export = d(
     env_train=block3d.export & d(compute_images=False),
 
     # True = use of fixed scale norms (1 for pos, 10 for ori, and 100 for gripper)
-    use_pose_norm=True,
+    use_pose_norm=False,
     model=bc_rnn.export & d(
+        goal_names=['objects/position', 'objects/orientation'],
+        state_names=['ee_position', 'ee_orientation', 'gripper_pos', 'objects/position', 'objects/orientation'],
         device=F('device'),
         horizon=F('horizon'),
-        # scales for loss (on delta action, delta ori is 10x, gripper is absolute -1 -> 1)
+        # scales for loss (on delta action, delta ori is 5x, gripper is absolute -1 -> 1)
         norm_overrides=F('use_pose_norm', lambda pn: (d(action=d(mean=np.zeros(7),
-                                                                 std=np.array([1., 1., 1., 10., 10., 10., 100.])))
+                                                                 std=np.array([1., 1., 1., 5., 5., 5., 50.])))
                                                       if pn else d())),
         save_action_normalization=True,
         loss_fn=F('use_policy_dist',
@@ -52,16 +54,16 @@ export = d(
         horizon=F('horizon'),
         batch_size=F('batch_size'),
         file=F('dataset', lambda x: f'data/affordance/{x}.npz'),
-        batch_names_to_get=['policy_type', 'ee_position', 'ee_orientation', 'objects/position',
-                            'objects/orientation', 'gripper_pos', 'policy_switch', 'action'],
+        batch_names_to_get=['ee_position', 'ee_orientation', 'objects/position',
+                            'objects/orientation', 'gripper_pos', 'action'],
     ),
     dataset_holdout=np_seq.export & d(
         load_episode_range=[0.9, 1.0],
         horizon=F('horizon'),
         batch_size=F('batch_size'),
         file=F('dataset', lambda x: f'data/affordance/{x}.npz'),
-        batch_names_to_get=['policy_type', 'ee_position', 'ee_orientation', 'objects/position',
-                            'objects/orientation', 'gripper_pos', 'policy_switch', 'action'],
+        batch_names_to_get=['ee_position', 'ee_orientation', 'objects/position',
+                            'objects/orientation', 'gripper_pos', 'action'],
     ),
 
     policy=d(

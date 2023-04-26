@@ -90,7 +90,13 @@ if __name__ == '__main__':
         tags = local_args.wandb_tags
         if tags is not None:
             tags = tags.split(':')
-        writer = WandbWriter(exp_name,
+        # special case for removing front of exp name
+        run_name = exp_name
+        if local_args.wandb_project == run_name.split('/')[0]:
+            run_name = exp_name[len(local_args.wandb_project) + 1:]
+            logger.debug(f"Run name will not include '{local_args.wandb_project}' prefix")
+
+        writer = WandbWriter(run_name,
                              AttrDict(project_name=local_args.wandb_project, config=params.as_dict(), tags=tags,
                                       force_id=local_args.wandb_force_id),
                              file_manager, resume=getattr(local_args, 'continue'))

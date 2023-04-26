@@ -365,7 +365,7 @@ class RobotBulletEnv(Env, VRInterface):
                     with timeit("env_step/control"):
                         self._control(act_np)
 
-                with timeit("env_step/step"):
+                with timeit("env_step/internal_step"):
                     self.set_external_forces(act_np)  # each stepSim clears external forces
                     self._step_simulation()
                     self.update_targets()
