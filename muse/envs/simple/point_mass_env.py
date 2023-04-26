@@ -129,7 +129,7 @@ class PointMassEnv(Env):
         base_action = to_numpy(action.action[0], check=True)
 
         # OBSTACLE SAFE noisy velocity control
-        next_obs = self._obs + self.ego_speed * base_action + np.random.randn(2) * self._noise_std
+        next_obs = self._obs + self.ego_speed * base_action + np.random.normal(0, self._noise_std, 2)
         for o in self.obstacles:
             # each can only reduce the norm
             next_obs = o.collision_safe_next_point(self._obs, next_obs)
@@ -174,8 +174,8 @@ class PointMassEnv(Env):
             self._next_done = self._reward > -0.01
 
         if self._render:
-            self.line.set_data([self._obs[0]], [self._obs[0]])
-            self.line2.set_data([self._target[0]], [self._target[0]])
+            self.line.set_data([self._obs[0]], [self._obs[1]])
+            self.line2.set_data([self._target[0]], [self._target[1]])
             for i, o in enumerate(self.obstacles):
                 # update center if changed.
                 if self.obstacles_changed[i]:
@@ -263,8 +263,8 @@ class PointMassEnv(Env):
     default_params = AttrDict(
         render=False,
         num_steps=100,
-        noise_std=0,
-        theta_noise_std=0,
+        noise_std=0.,
+        theta_noise_std=0.,
         target_speed=0.025,
         ego_speed=0.04,
         num_obstacles=0,
