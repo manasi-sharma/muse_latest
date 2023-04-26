@@ -118,6 +118,7 @@ class WaypointPolicy(Policy):
         return d(
             target=d(
                 ee_position=wp_pose[:3],
+                ee_orientation=target_q,
                 ee_orientation_eul=wp_pose[3:],
                 gripper_pos=np.array([wp_grip]),
             ),

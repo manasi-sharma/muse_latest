@@ -957,6 +957,7 @@ class BlockEnv3D(RobotBulletEnv):
                 ("ego_image", (img_height, img_width, 3), (0, 255), np.uint8),
                 ('wrist_ft', (6,), (-np.inf, np.inf), np.float32),
                 ('ee_position', (3,), (-np.inf, np.inf), np.float32),
+                ('ee_orientation', (4,), (-1., 1.), np.float32),
                 ('ee_orientation_eul', (3,), (-np.inf, np.inf), np.float32),
                 ('ee_velocity', (3,), (-np.inf, np.inf), np.float32),
                 ('ee_angular_velocity', (3,), (-np.inf, np.inf), np.float32),
@@ -966,6 +967,7 @@ class BlockEnv3D(RobotBulletEnv):
                 ('gripper_pos', (1,), (-np.inf, np.inf), np.float32),
                 ('gripper_tip_pos', (3,), (-np.inf, np.inf), np.float32),
                 ('objects/position', (nb, 3), (-np.inf, np.inf), np.float32),
+                ('objects/orientation', (nb, 4), (-1., 1.), np.float32),
                 ('objects/orientation_eul', (nb, 3), (-np.inf, np.inf), np.float32),
                 ('objects/velocity', (nb, 3), (-np.inf, np.inf), np.float32),
                 ('objects/angular_velocity', (nb, 3), (-np.inf, np.inf), np.float32),
@@ -976,6 +978,7 @@ class BlockEnv3D(RobotBulletEnv):
                 # TODO in a pre-defined box of allowed motion.
                 ('action', (AC_DIM,), (low, high), np.float32),
                 ('target/ee_position', (3,), (-100, 100), np.float32),
+                ('target/ee_orientation', (4,), (-1., 1.), np.float32),
                 ('target/ee_orientation_eul', (3,), (-2 * np.pi, 2 * np.pi), np.float32),
                 ('target/gripper_pos', (1,), (-1, 1.), np.float32),
 
@@ -987,14 +990,14 @@ class BlockEnv3D(RobotBulletEnv):
 
             ],
             observation_names=[
-                "wrist_ft", "ee_position", "ee_orientation_eul", "ee_velocity", "ee_angular_velocity",
+                "wrist_ft", "ee_position", "ee_orientation", "ee_orientation_eul", "ee_velocity", "ee_angular_velocity",
                 "joint_positions", "gripper_pos", "gripper_tip_pos", "finger_left_contact", "finger_right_contact",
-                "objects/position", "objects/orientation_eul", "objects/velocity", "objects/angular_velocity",
+                "objects/position", "objects/orientation", "objects/orientation_eul", "objects/velocity", "objects/angular_velocity",
                 "objects/aabb", "objects/contact", 'reward',
             ],
             param_names=["objects/size"],
             final_names=[],
-            action_names=["action", "target/ee_position", "target/ee_orientation_eul", "target/gripper_pos"],
+            action_names=["action", "target/ee_position", "target/ee_orientation", "target/ee_orientation_eul", "target/gripper_pos"],
             # "policy_type",
             # "policy_name", "policy_switch"],
             output_observation_names=[]

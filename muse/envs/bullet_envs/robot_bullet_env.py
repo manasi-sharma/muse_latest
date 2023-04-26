@@ -103,6 +103,7 @@ class RobotBulletEnv(Env, VRInterface):
         assert self.delta_pivot in ['ground_truth', 'expected']
         # gripper action will be -1 to 1, this is the internal range for _control()
         self.gripper_range = get_with_default(params, "gripper_range", np.array([0., 255.]))
+        logger.info(f'Action mode = {self.action_mode}')
 
         # no GUI default
         self._render = get_with_default(params, "render", False)
