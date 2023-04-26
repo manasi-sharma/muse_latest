@@ -37,7 +37,7 @@ class PMDirectPolicy(Policy):
         # clip the distance traveled
         if self._env.ego_speed * self.speed > dist:
             # move the exact distance
-            vel = (targ - ego) * self._env.ego_speed
+            vel = (targ - ego) / self._env.ego_speed
         else:
             # vector pointing to target, at self.speed
             vel = (targ - ego) / dist * self.speed
