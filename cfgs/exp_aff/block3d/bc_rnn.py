@@ -22,7 +22,7 @@ export = d(
     exp_name='affordance/velact_{?seed:s{seed}_}b{batch_size}_h{horizon}_{dataset}{?use_pose_norm:_pn}',
     # utils=utils,
     env_spec=GroupField('env_train', block3d.export.cls.get_default_env_spec_params),
-    env_train=block3d.export & d(compute_images=False),
+    env_train=block3d.export & d(task_name='lift', compute_images=False),
 
     # True = use of fixed scale norms (1 for pos, 10 for ori, and 100 for gripper)
     use_pose_norm=False,
