@@ -70,7 +70,7 @@ class PointMassEnv(Env):
         self._theta_noise_std = params["theta_noise_std"]
         self._sparse_reward = get_with_default(params, "sparse_reward", True)
         self._target_speed = params["target_speed"]
-        self._ego_speed = params["ego_speed"]
+        self.ego_speed = params["ego_speed"]
 
         self._init_obs = params << "initial_obs"
         self._init_targ = params << "initial_target"
@@ -129,7 +129,7 @@ class PointMassEnv(Env):
         base_action = to_numpy(action.action[0], check=True)
 
         # OBSTACLE SAFE noisy velocity control
-        next_obs = self._obs + self._ego_speed * base_action + np.random.randn(2) * self._noise_std
+        next_obs = self._obs + self.ego_speed * base_action + np.random.randn(2) * self._noise_std
         for o in self.obstacles:
             # each can only reduce the norm
             next_obs = o.collision_safe_next_point(self._obs, next_obs)
@@ -265,8 +265,8 @@ class PointMassEnv(Env):
         num_steps=100,
         noise_std=0,
         theta_noise_std=0,
-        target_speed=0.0125,
-        ego_speed=0.025,
+        target_speed=0.025,
+        ego_speed=0.04,
         num_obstacles=0,
     )
 
