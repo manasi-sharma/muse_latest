@@ -4,6 +4,7 @@ Optionally save to a dataset (if --save_every_n_episodes > 0)
 """
 
 import os
+import sys
 
 import numpy as np
 import torch
@@ -271,6 +272,7 @@ if __name__ == '__main__':
     ep = 0
     last_save = None
     first_to_save_ep = 0
+    all_returns = []
     while not terminate_fn(step, ep):
         logger.info(f"[{step}] Rolling out episode {ep}...")
 
@@ -284,6 +286,7 @@ if __name__ == '__main__':
             ep += 1
 
             inputs, outputs = parse_history(env_spec, obs_history, goal_history, ac_history)
+            all_returns.append(returns)
 
             # actually add to dataset
             dataset_save.add_episode(inputs, outputs)
@@ -299,6 +302,16 @@ if __name__ == '__main__':
 
     logger.info(f"[{step}] Terminating after {ep} episodes. Final data len = {len(dataset_save)}")
 
+    if args.track_returns:
+        logger.info(f"--------------------------------------------------------------")
+        logger.info(f"exp_name = {exp_name}\n")
+        logger.debug(f"Raw command: \n{' '.join(sys.argv)} \n")
+
+        all_returns = np.asarray(all_returns)
+        logger.info(f"Returns: mean={np.mean(all_returns)}, std={np.std(all_returns)}, "
+                    f"%>0={np.mean(all_returns > 0) * 100}")
+        logger.info(f"---------------------------------------------------------------")
+
     # save one last time if there's new stuff and we are supposed to save
     if not last_save != step and step > 0 and args.save_every_n_episodes > 0:
         logger.warn("Saving final data...")
@@ -306,3 +319,5 @@ if __name__ == '__main__':
              first_to_save_ep=first_to_save_ep, save_chunks=args.save_chunks)
 
     logger.info("Done.")
+
+

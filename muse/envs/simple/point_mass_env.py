@@ -3,11 +3,12 @@ import numpy as np
 
 from muse.envs.env import Env, make
 from muse.envs.env_spec import EnvSpec
-from muse.utils.general_utils import value_if_none
+from muse.utils.general_utils import value_if_none, is_array
 from muse.utils.np_utils import line_circle_intersection
 from attrdict import AttrDict
 from attrdict.utils import get_with_default
 from muse.utils.torch_utils import to_numpy
+from muse.experiments import logger
 
 
 class PMObstacle:
@@ -18,6 +19,7 @@ class PMObstacle:
     - step: alter path of target based on obstacle
     - rendering
     """
+
     def __init__(self, center=(0., 0.), radius=0.1):
         self.center = np.asarray(center, dtype=np.float32)
         self.radius = float(radius)
@@ -60,6 +62,7 @@ class PointMassEnv(Env):
     """
     Simple 2D point mass environment.
     """
+
     def __init__(self, params, env_spec: EnvSpec):
         super().__init__(params, env_spec)
 
@@ -148,7 +151,7 @@ class PointMassEnv(Env):
         if np.random.random() < prob_run_away:  # running away behavior
             theta = np.random.normal(loc=np.arctan2(vel[1], vel[0]), scale=self._theta_noise_std) % (2 * np.pi)
         else:
-            theta = np.random.uniform(0, 2*np.pi)
+            theta = np.random.uniform(0, 2 * np.pi)
         self._target_vel = self._target_speed * np.array([np.cos(theta), np.sin(theta)])
 
         # OBSTACLE SAFE target motion
@@ -189,6 +192,7 @@ class PointMassEnv(Env):
         return self.get_obs(), self.get_goal(), np.array([self._done])
 
     def reset(self, presets: AttrDict = None):
+        logger.debug('[PointMass] Resetting...')
         presets = value_if_none(presets, AttrDict())
         # EGO / TARGET
         # random if no default / preset is specified.
@@ -210,8 +214,9 @@ class PointMassEnv(Env):
                     margin = 0.005  # separation between obstacle and new obstacle to enforce
                     to_compare = [(self._obs, 0.), (self._target, 0.)] + \
                                  [(self.obstacles[j].center, self.obstacles[j].radius) for j in range(i)]
-                    has_clearance = [np.linalg.norm(self.obstacles[i].center - c) >= self.obstacles[i].radius + r + margin
-                                     for c, r in to_compare]  # compare to previous obstacles
+                    has_clearance = [
+                        np.linalg.norm(self.obstacles[i].center - c) >= self.obstacles[i].radius + r + margin
+                        for c, r in to_compare]  # compare to previous obstacles
                     if all(has_clearance):
                         break  # random initialization is non overlapping.
             else:
@@ -251,7 +256,8 @@ class PointMassEnv(Env):
             object_pos = np.stack([o.center for o in self.obstacles], axis=0)
             observation['objects/position'] = object_pos[None]
             observation['objects/size'] = np.asarray(self.obstacle_radii)[None]
-            observation['objects/contact'] = np.asarray([self.obstacles[i].is_colliding(self._obs) for i in range(self.num_obstacles)])[None]
+            observation['objects/contact'] = \
+                np.asarray([self.obstacles[i].is_colliding(self._obs) for i in range(self.num_obstacles)])[None]
         return self._env_spec.map_to_types(observation)
 
     def get_goal(self):
@@ -303,8 +309,23 @@ class PointMassEnv(Env):
         )
 
 
+def get_online_action_postproc_fn():
+    # models can use this to post proc (e.g. normalize) actions with GCBCPolicy
+    def action_postproc(model, obs, out, policy_out_names,
+                        policy_out_norm_names=None,
+                        **kwargs):
+        if policy_out_norm_names is None:
+            policy_out_norm_names = policy_out_names
+
+        # normalize if any, then index along horizon
+        out.combine(model.normalize_by_statistics(out, policy_out_norm_names, inverse=True)
+                    .leaf_apply(lambda arr: (arr[:, 0] if is_array(arr) else arr)))
+
+    return action_postproc
+
+
 if __name__ == '__main__':
-    from muse.experiments import logger
+
     env = make(PointMassEnv, AttrDict(render=True))
 
     env.reset()

@@ -13,6 +13,6 @@ export = d(
     policy=d(
         cls=PMDirectPolicy,
         speed=1.0,  # max speed
-        variance=0.,
+        noise_std=0.,
     ),
 )
