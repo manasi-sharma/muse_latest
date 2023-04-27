@@ -59,7 +59,7 @@ export = d(
         fill_extra_policy_names=True,
         # shared online function with real environment
         online_action_postproc_fn=get_online_action_postproc_fn(),
-        is_terminated_fn=get_timeout_terminate_fn(75),  # episode length online
+        is_terminated_fn=get_timeout_terminate_fn(500),  # episode length online
     ),
     goal_policy=d(
         cls=BasicPolicy,

@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--noise_type', type=str, default='s', choices=['s', 'p'])
 parser.add_argument('--num_rollouts', type=int, default=100)
 parser.add_argument('--model_file', type=str, default='best_model.pt')
+parser.add_argument('--extra_env_args', type=str, default='')
 args = parser.parse_args()
 
 
@@ -44,12 +45,15 @@ for suff in dset_suffs:
         save_names = [f"{model_prefix}eval{num_rollouts}_{noise_type}n{hr_name(inner_s)}.npz" for inner_s in s_noises]
         hr_names = sweep_from_arr(save_names)
 
-        exp_name = f'experiments/pmhvs/velact_b256_h10_pm_direct_{noise}_1000ep{suff}_bc-l2_mlp200-d2'
+        # dset = f"pm_direct_{noise}_1000ep{suff}"
+        dset = f"all_pm_direct_{noise}_ns500_1000ep{suff}"
+
+        exp_name = f'experiments/pmhvs/velact_b256_h10_{dset}_bc-l2_mlp200-d2'
         # command to run
         command = f"python scripts/slurm.py -sp -c iliad --cpus 10 --job-name pmeval_{noise}{suff} --- " \
                   f"python scripts/collect.py --max_eps {num_rollouts} --save_file {hr_names} " \
                   f"--save_every_n_episodes 100 --model_file {model_file} --track_returns exp={exp_name} " \
-                  f"%env_train --noise_std {hr_s_sweep}"
+                  f"%env_train --noise_std {hr_s_sweep} {args.extra_env_args}"
 
         print(command)
         subprocess.run(command, shell=True)
