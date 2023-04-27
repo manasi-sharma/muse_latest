@@ -13,7 +13,7 @@ class PMDirectPolicy(Policy):
     def _init_params_to_attrs(self, params):
         # max speed by default
         self.speed = get_with_default(params, "speed", 1.0)
-        self.variance = get_with_default(params, "variance", 0.)
+        self.noise_std = get_with_default(params, "noise_std", 0.)
 
     def _init_setup(self):
         assert isinstance(self._env, PointMassEnv) and self._env.num_obstacles == 0
@@ -42,8 +42,9 @@ class PMDirectPolicy(Policy):
             # vector pointing to target, at self.speed
             vel = (targ - ego) / dist * self.speed
 
-        if self.variance > 0.:
-            vel[:] += np.random.normal(0, self.variance, 2)
+        # noise_std scaled to match environment noise_std
+        if self.noise_std > 0.:
+            vel[:] += np.random.normal(0, self.noise_std, 2) / self._env.ego_speed
 
         return d(
             action=vel[None],
