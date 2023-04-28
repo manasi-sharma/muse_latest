@@ -28,6 +28,10 @@ class PMObstacle:
         norm = np.linalg.norm(np.asarray(point, dtype=np.float32) - self.center)
         return (norm <= self.radius, norm) if ret_distance else norm <= self.radius
 
+    def is_inside(self, point, ret_distance=False):
+        norm = np.linalg.norm(np.asarray(point, dtype=np.float32) - self.center)
+        return (norm < self.radius - 1e-9, norm) if ret_distance else norm < self.radius - 1e-9
+
     def collision_safe_next_point(self, point, next_point):
         point, next_point = np.asarray(point), np.asarray(next_point)
         initial_norm = np.linalg.norm(next_point - point)
@@ -80,6 +84,8 @@ class PointMassEnv(Env):
 
         # optional obstacles (circles) will be spawned on the field, which the target and ego cannot go through.
         self.num_obstacles = get_with_default(params, "num_obstacles", 0)
+        # if True, ep ends if u go into obstacle
+        self.done_on_obstacle = get_with_default(params, "done_on_obstacle", False)
         self.obstacle_bounds = get_with_default(params, "obstacle_bounds", [0.25, 0.75])  # random bounds for init
         self.obstacle_radii = get_with_default(params, "obstacle_radii", [0.05 for _ in range(self.num_obstacles)])
         self.obstacle_face_colors = get_with_default(params, "obstacle_face_colors",
@@ -132,10 +138,16 @@ class PointMassEnv(Env):
         base_action = to_numpy(action.action[0], check=True)
 
         # OBSTACLE SAFE noisy velocity control
-        next_obs = self._obs + self.ego_speed * base_action + np.random.normal(0, self._noise_std, 2)
+        next_obs = self._obs + np.random.normal(0, self._noise_std, 2)
+        if not self.done_on_obstacle:
+            # action will be prevented from leading into obstacle
+            next_obs = next_obs + self.ego_speed * base_action
         for o in self.obstacles:
             # each can only reduce the norm
             next_obs = o.collision_safe_next_point(self._obs, next_obs)
+        if self.done_on_obstacle:
+            # action might lead us into an obstacle, in which case the episode will end
+            next_obs = next_obs + self.ego_speed * base_action
         self._obs = next_obs
 
         vel = base_action / np.linalg.norm(base_action)
@@ -164,13 +176,16 @@ class PointMassEnv(Env):
         self._obs = np.clip(self._obs, 0, 1)
         self._target = np.clip(self._target, 0, 1)
 
+        inside = any(self.obstacles[i].is_inside(self._obs) for i in range(self.num_obstacles))
+        collision = any(self.obstacles[i].is_colliding(self._obs) for i in range(self.num_obstacles))
+
         self._curr_step += 1
-        self._done = self._next_done or self._curr_step >= self._num_steps
+        self._done = self._next_done or self._curr_step >= self._num_steps or (self.done_on_obstacle and inside)
 
         if self._sparse_reward:
             self._reward = float(np.linalg.norm(self._obs - self._target) <= 0.01)
             self._next_done = self._reward > 0
-            if any(self.obstacles[i].is_colliding(self._obs) for i in range(self.num_obstacles)):
+            if not self.done_on_obstacle and collision:
                 self._reward += -1  # penalty for collision
         else:
             self._reward = - np.linalg.norm(self._obs - self._target)
@@ -274,6 +289,7 @@ class PointMassEnv(Env):
         target_speed=0.025,
         ego_speed=0.04,
         num_obstacles=0,
+        done_on_obstacle=False,
     )
 
     @staticmethod
@@ -307,7 +323,6 @@ class PointMassEnv(Env):
             param_names=obstacle_param_names,
             final_names=[],
         )
-
 
 def get_online_action_postproc_fn():
     # models can use this to post proc (e.g. normalize) actions with GCBCPolicy

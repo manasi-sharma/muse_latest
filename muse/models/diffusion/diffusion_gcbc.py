@@ -34,8 +34,10 @@ class DiffusionConvActionDecoder(ActionDecoder):
                  help='How many inference steps to run'),
         Argument('use_ddim', action='store_true',
                  help='Use DDIM as the default noise scheduler.'),
-        Argument('use_parallel_ddpm', action='store_true',
-                 help='Use parallel DDPM as the default noise scheduler.')
+        Argument('use_dpmsolver', action='store_true',
+                 help='Use dpm-solver as the default noise scheduler.'),
+        Argument('use_parallel', action='store_true',
+                 help='Use parallel sampling on top of scheduler.')
     ]
 
     def _init_params_to_attrs(self, params: d):
@@ -60,43 +62,81 @@ class DiffusionConvActionDecoder(ActionDecoder):
             cond_predict_scale=True,
         )
 
-        if self.use_ddim:
-            import diffusers.schedulers.scheduling_ddim as ddim_sched
-            noise_scheduler = d(
-                cls=ddim_sched.DDIMScheduler,
-                num_train_timesteps=100,
-                beta_start=0.0001,
-                beta_end=0.02,
-                beta_schedule='squaredcos_cap_v2',
-                set_alpha_to_one=True,
-                clip_sample=True,  # required when predict_epsilon=False
-                prediction_type='epsilon',  # or sample
-            )
-        elif self.use_parallel_ddpm:
-            import muse.models.diffusion.schedulers.batch_ddpm_scheduler as ddpm_sched
-            noise_scheduler = d(
-                cls=ddpm_sched.BatchDDPMScheduler,
-                num_train_timesteps=100,
-                beta_start=0.0001,
-                beta_end=0.02,
-                beta_schedule='squaredcos_cap_v2',
-                variance_type='fixed_small',  # Yilun's paper uses fixed_small_log instead, but easy to cause Nan
-                clip_sample=True,  # required when predict_epsilon=False
-                prediction_type='epsilon',  # or sample
-            )
+        if self.use_dpmsolver:
+            if self.use_parallel:
+                from muse.models.diffusion.schedulers.batch_dpmsolver_scheduler import BatchDPMSolverMultistepScheduler
+                noise_scheduler = d(
+                    cls=BatchDPMSolverMultistepScheduler,
+                    num_train_timesteps=100,
+                    beta_start=0.0001,
+                    beta_end=0.02,
+                    beta_schedule='squaredcos_cap_v2',
+                    prediction_type='epsilon',  # or sample
+                )
+            else:
+                from muse.models.diffusion.schedulers.dpmsolver_scheduler import MyDPMSolverMultistepScheduler
+                noise_scheduler = d(
+                    cls=MyDPMSolverMultistepScheduler,
+                    num_train_timesteps=100,
+                    beta_start=0.0001,
+                    beta_end=0.02,
+                    beta_schedule='squaredcos_cap_v2',
+                    prediction_type='epsilon',  # or sample
+                )
+        elif self.use_ddim:
+            if self.use_parallel:
+                from muse.models.diffusion.schedulers.batch_ddim_scheduler import BatchDDIMScheduler
+                noise_scheduler = d(
+                    cls=BatchDDIMScheduler,
+                    num_train_timesteps=100,
+                    beta_start=0.0001,
+                    beta_end=0.02,
+                    beta_schedule='squaredcos_cap_v2',
+                    set_alpha_to_one=True,
+                    clip_sample=True,  # required when predict_epsilon=False
+                    prediction_type='epsilon',  # or sample
+                )
+            else:
+                from diffusers.schedulers.scheduling_ddim import DDIMScheduler
+                noise_scheduler = d(
+                    cls=DDIMScheduler,
+                    num_train_timesteps=100,
+                    beta_start=0.0001,
+                    beta_end=0.02,
+                    beta_schedule='squaredcos_cap_v2',
+                    set_alpha_to_one=True,
+                    clip_sample=True,  # required when predict_epsilon=False
+                    prediction_type='epsilon',  # or sample
+                )
         else:
-            # default parameters for scheduler
-            import diffusers.schedulers.scheduling_ddpm as ddpm_sched
-            noise_scheduler = d(
-                cls=ddpm_sched.DDPMScheduler,
-                num_train_timesteps=100,
-                beta_start=0.0001,
-                beta_end=0.02,
-                beta_schedule='squaredcos_cap_v2',
-                variance_type='fixed_small',  # Yilun's paper uses fixed_small_log instead, but easy to cause Nan
-                clip_sample=True,  # required when predict_epsilon=False
-                prediction_type='epsilon',  # or sample
-            )
+            if self.use_parallel:
+                from muse.models.diffusion.schedulers.batch_ddpm_scheduler import BatchDDPMScheduler
+                noise_scheduler = d(
+                    cls=BatchDDPMScheduler,
+                    num_train_timesteps=100,
+                    beta_start=0.0001,
+                    beta_end=0.02,
+                    beta_schedule='squaredcos_cap_v2',
+                    variance_type='fixed_small',  # Yilun's paper uses fixed_small_log instead, but easy to cause Nan
+                    clip_sample=True,  # required when predict_epsilon=False
+                    prediction_type='epsilon',  # or sample
+                )
+            else:
+                from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
+                noise_scheduler = d(
+                    cls=DDPMScheduler,
+                    num_train_timesteps=100,
+                    beta_start=0.0001,
+                    beta_end=0.02,
+                    beta_schedule='squaredcos_cap_v2',
+                    variance_type='fixed_small',  # Yilun's paper uses fixed_small_log instead, but easy to cause Nan
+                    clip_sample=True,  # required when predict_epsilon=False
+                    prediction_type='epsilon',  # or sample
+                )
+
+        # tag with attribute to indicate whether to use parallel sampling
+        noise_scheduler._is_parallel_scheduler = self.use_parallel
+        noise_scheduler._is_ode_scheduler = self.use_dpmsolver or self.use_ddim
 
         # override num_inference_steps to reduce the number of inference steps.
         return base_prms & d(
