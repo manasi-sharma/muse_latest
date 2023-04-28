@@ -134,6 +134,9 @@ class RobotBulletEnv(Env, VRInterface):
 
         self.debug = get_with_default(params, "debug", False)
 
+        # set to non None to enable ending episode when the reward > done_thresh
+        self.done_reward_thresh = get_with_default(params, "done_reward_thresh", None)
+
         self._teleop_fn = get_with_default(params, "teleop_fn",
                                            muse.envs.bullet_envs.teleop_functions.bullet_keys_teleop_fn)
 
@@ -141,6 +144,7 @@ class RobotBulletEnv(Env, VRInterface):
         self.id = None  # THIS SHOULD BE SET
         self._curr_obs = AttrDict()
         self.last_action = None
+        self.next_done = False
 
         self._init_bullet_world()
 
@@ -281,7 +285,7 @@ class RobotBulletEnv(Env, VRInterface):
         self._curr_obs = obs.copy()
 
     def _get_done(self, obs: AttrDict = None):
-        return np.array([self.iteration >= self._max_steps])
+        return np.array([self.iteration >= self._max_steps or self.next_done])
 
     def _process_action(self, action):
         """ Conversion from whatever input action space to ee pos / ori_eul
@@ -388,6 +392,9 @@ class RobotBulletEnv(Env, VRInterface):
         done = self._get_done(obs=next_obs)
         if not next_obs.has_leaf_key("reward"):
             next_obs.reward = self._get_reward(self._curr_obs, next_obs, AttrDict(), action, done)
+        # next done will trigger the next step to end the episode
+        if self.done_reward_thresh is not None and next_obs.reward.item() >= self.done_reward_thresh:
+            self.next_done = True
         self._register_obs(next_obs, done)
         return next_obs, AttrDict(), done
 
@@ -475,6 +482,8 @@ class RobotBulletEnv(Env, VRInterface):
                             ret_ego_images=presets.get("ret_images", True) and self.compute_ego_images)
         if not obs.has_leaf_key("reward"):
             obs.reward = np.zeros((1, 1))
+
+        self.next_done = False
         done = self._get_done(obs=obs)
         # first obs
         self._register_obs(obs, done)
