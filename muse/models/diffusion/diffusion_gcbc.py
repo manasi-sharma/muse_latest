@@ -71,6 +71,7 @@ class DiffusionConvActionDecoder(ActionDecoder):
                     beta_start=0.0001,
                     beta_end=0.02,
                     beta_schedule='squaredcos_cap_v2',
+                    solver_order=3,
                     prediction_type='epsilon',  # or sample
                 )
             else:
@@ -81,6 +82,7 @@ class DiffusionConvActionDecoder(ActionDecoder):
                     beta_start=0.0001,
                     beta_end=0.02,
                     beta_schedule='squaredcos_cap_v2',
+                    solver_order=3,
                     prediction_type='epsilon',  # or sample
                 )
         elif self.use_ddim:
