@@ -12,6 +12,7 @@ parser.add_argument('--noise_type', type=str, default='s', choices=['s', 'p'])
 parser.add_argument('--num_rollouts', type=int, default=100)
 parser.add_argument('--model_file', type=str, default='best_model.pt')
 parser.add_argument('--extra_env_args', type=str, default='')
+parser.add_argument('--dset_suffs', type=str, nargs='+', default=['', '-first10'])
 args = parser.parse_args()
 
 
@@ -26,7 +27,9 @@ num_rollouts = args.num_rollouts
 noise_type = args.noise_type
 
 s_noises = [0.01, 0.02, 0.03, 0.04, 0.05]
-dset_suffs = ['', '-first100', '-first50']
+dset_suffs = list(args.dset_suffs)
+batch_sizes = [50 if suff == '-first10' else 256 for suff in dset_suffs]
+# batch_size = 256
 
 model_file = args.model_file
 if model_file == 'best_model.pt':
@@ -37,7 +40,7 @@ else:
     # otherwise remove extension
     mode_prefix = model_file[:-3] + "_"
 
-for suff in dset_suffs:
+for batch_size, suff in zip(batch_sizes, dset_suffs):
     for s in s_noises:
         hr_s_sweep = sweep_from_arr(s_noises)
         noise = f"{noise_type}n{hr_name(s)}"
@@ -46,9 +49,10 @@ for suff in dset_suffs:
         hr_names = sweep_from_arr(save_names)
 
         # dset = f"pm_direct_{noise}_1000ep{suff}"
-        dset = f"all_pm_direct_{noise}_ns500_1000ep{suff}"
+        # dset = f"all_pm_direct_{noise}_ns500_1000ep{suff}"
+        dset = f"all_pmobs_direct_{noise}_1000ep{suff}"
 
-        exp_name = f'experiments/pmhvs/velact_b256_h10_{dset}_bc-l2_mlp200-d2'
+        exp_name = f'experiments/pmhvs/velact_b{batch_size}_h10_{dset}_bc-l2_mlp200-d2'
         # command to run
         command = f"python scripts/slurm.py -sp -c iliad --cpus 10 --job-name pmeval_{noise}{suff} --- " \
                   f"python scripts/collect.py --max_eps {num_rollouts} --save_file {hr_names} " \
