@@ -18,7 +18,8 @@ class Waypoint:
                  check_reach=True,
                  grasping=False,
                  max_pos_vel=None,
-                 max_ori_vel=None,):
+                 max_ori_vel=None,
+                 noise=None):
         # if False, will use the last state, not the last waypoint of the given robot/object
         self.relative_to_parent = relative_to_parent
         # ... -1 = robot0, 0 = None, 1 = object0 ... ignored if relative_to_parent == True
@@ -45,6 +46,9 @@ class Waypoint:
 
         self.max_pos_vel = max_pos_vel  # policy can choose to use this to limit vel
         self.max_ori_vel = max_ori_vel  # policy can choose to use this to limit vel
+
+        # specifies the amount of "noise" in reaching some segment (implemented by policy)
+        self.noise = noise
 
         self._init_gripper = None
 
