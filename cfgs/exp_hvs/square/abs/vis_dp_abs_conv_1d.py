@@ -9,7 +9,7 @@ from muse.envs.robosuite.robosuite_env import RobosuiteEnv
 export = vis_dp_conv_1d.export & d(
     # this dataset has position actions relabeled..
     dataset='human_square_abs_30k_eimgs',
-    exp_name='hvsBlock3D/posact_{?seed:s{seed}_}b{batch_size}_h{horizon}_{dataset}{?use_pose_norm:_pn}',
+    exp_name='hvsBlock3D/posact_{?seed:s{seed}_}b{batch_size}_h{horizon}{?use_ema:_ema}_{dataset}{?use_pose_norm:_pn}',
     # change in the env
     env_spec=RobosuiteEnv.get_default_env_spec_params(square.export & d(use_delta=False, imgs=True, ego_imgs=True)),
     env_train=square.export & d(use_delta=False, imgs=True, ego_imgs=True),

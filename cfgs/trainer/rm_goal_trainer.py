@@ -46,6 +46,7 @@ export = d(
             weight_decay=0
         ),
     ),
+    use_stabilizer=False,
     trackers=reward_tracker.export,
     write_average_episode_returns_every_n_env_steps=0,
     track_best_name='env_train/returns',

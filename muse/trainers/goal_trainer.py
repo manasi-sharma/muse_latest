@@ -7,6 +7,7 @@ from muse.datasets.preprocess.data_augmentation import DataAugmentation
 from muse.experiments import logger
 from muse.trainers.base_goal_trainer import BaseGoalTrainer
 from muse.trainers.optimizers.optimizer import SingleOptimizer
+from muse.trainers.stabilizers import Stabilizer
 from muse.utils.general_utils import is_next_cycle, listify, timeit
 from attrdict import AttrDict
 from attrdict.utils import get_with_default, get_cls_param_instance
@@ -27,7 +28,7 @@ class GoalTrainer(BaseGoalTrainer):
                  reward=None,
                  writer=None,
                  optimizer=None,
-                 sampler=None,):
+                 sampler=None, ):
         """
         Trainer for a goal_policy, if you want online env steps during training.
         NOTE: env will be reset when either env is terminated or goal_policy is terminated.
@@ -53,7 +54,7 @@ class GoalTrainer(BaseGoalTrainer):
         """
         self._datasets_train = datasets_train
         self._datasets_holdout = datasets_holdout
-        
+
         # get samplers
         self._dataset_samplers_train = self._init_samplers(datasets_train, sampler, group_name='train')
         self._dataset_samplers_holdout = self._init_samplers(datasets_holdout, sampler, group_name='holdout')
@@ -83,7 +84,7 @@ class GoalTrainer(BaseGoalTrainer):
         for i, ds in enumerate(datasets):
             if sampler is not None:
                 # first dataset will be the current one by default.
-                samplers.append(sampler.cls([ds] + datasets[:i] + datasets[i+1:], sampler))
+                samplers.append(sampler.cls([ds] + datasets[:i] + datasets[i + 1:], sampler))
             else:
                 samplers.append(ds.get_sampler())
         return samplers
@@ -152,6 +153,9 @@ class GoalTrainer(BaseGoalTrainer):
         self._write_to_tensorboard_every_n = int(
             get_with_default(params, "write_to_tensorboard_every_n_train_steps", 20))
 
+        # stabilizer
+        self._use_stabilizer = get_with_default(params, "use_stabilizer", False)
+
         self._save_checkpoint_every_n_steps = get_with_default(params, "save_checkpoint_every_n_steps", 0)
         if self._save_checkpoint_every_n_steps > 0:
             assert self._save_checkpoint_every_n_steps % self._save_every_n_steps == 0, "Checkpointing steps should be a multiple of model save steps."
@@ -178,6 +182,22 @@ class GoalTrainer(BaseGoalTrainer):
         # loss might be a dictionary potentially. TODO
         return self._optimizer.step(loss, inputs, outputs, dataset_idx, meta=meta, i=i, ti=ti, writer=writer,
                                     writer_prefix=writer_prefix)
+
+    def _init_stabilizers(self, params):
+        self._stb = None
+        if self._use_stabilizer:
+            logger.debug(f'Using stabilizer of class {params.stabilizer.cls}')
+            self._stb = params.stabilizer.cls(self._model,
+                                              **params.stabilizer.node_leaf_without_keys(['cls']).as_dict())
+            assert isinstance(self._stb, Stabilizer), "instantiated object is not a Stabilizer instance!"
+
+    def _stabilizer_step(self, loss, inputs, outputs, dataset_idx, meta: AttrDict = AttrDict(), i=0, ti=0,
+                         writer=None,
+                         writer_prefix=""):
+        if self._stb is not None:
+            self._stb.step(self._model, ti=ti)
+            # update the model used for eval / saving
+            self._eval_model = self._stb.stable_model
 
     def _write_step(self, model, loss, inputs, outputs, meta: AttrDict = AttrDict(), dataset_idx=0, **kwargs):
         self._summary_writer.add_scalar("train_step", self._current_train_step[dataset_idx], self._current_step)
@@ -243,6 +263,10 @@ class GoalTrainer(BaseGoalTrainer):
             with timeit('train/backprop'):
                 self._optimizer_step(loss, inputs, outputs, dataset_idx, meta=meta, i=self._current_step,
                                      ti=self._current_train_step[dataset_idx], writer=sw, writer_prefix="train/")
+
+            with timeit('train/stabilizer'):
+                self._stabilizer_step(loss, inputs, outputs, dataset_idx, meta=meta, i=self._current_step,
+                                      ti=self._current_train_step[dataset_idx], writer=sw, writer_prefix="train/")
 
         with timeit('train/detach_loss'):
             if isinstance(loss, AttrDict):
@@ -377,7 +401,7 @@ class GoalTrainer(BaseGoalTrainer):
             with timeit('rollout train env'):
                 for i in range(self._rollout_train_env_n_per_step):
                     step_wrapper = AttrDict(step=self._current_env_train_step)
-                    obs_holdout, goal_holdout, _ = self.env_rollout(self._model, self._env_train,
+                    obs_holdout, goal_holdout, _ = self.env_rollout(self._eval_model, self._env_train,
                                                                     self._datasets_train,
                                                                     obs_train, goal_train,
                                                                     self._env_train_memory,
@@ -396,7 +420,7 @@ class GoalTrainer(BaseGoalTrainer):
             with timeit('rollout holdout env'):
                 for i in range(self._rollout_holdout_env_n_per_step):
                     step_wrapper = AttrDict(step=self._current_env_holdout_step)
-                    obs_holdout, goal_holdout, _ = self.env_rollout(self._model, self._env_holdout,
+                    obs_holdout, goal_holdout, _ = self.env_rollout(self._eval_model, self._env_holdout,
                                                                     self._datasets_holdout,
                                                                     obs_holdout, goal_holdout,
                                                                     self._env_holdout_memory,

@@ -438,7 +438,8 @@ class Model(torch.nn.Module, BaseClass):
 
         return loss
 
-    def train_step(self, inputs, outputs, i=0, writer=None, writer_prefix="", ret_dict=False, optimizer=None, **kwargs):
+    def train_step(self, inputs, outputs, i=0, writer=None, writer_prefix="", ret_dict=False, optimizer=None,
+                   stabilizer=None, **kwargs):
         # if you override this, make sure to set implements_train_step=True for Trainer to know
         logger.warn("Train Step not implemented but was called...")
 
