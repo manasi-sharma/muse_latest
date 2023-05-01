@@ -8,8 +8,6 @@ from muse.utils.general_utils import params_to_object, timeit
 from muse.utils.param_utils import LayerParams
 from muse.utils.torch_utils import combine_then_concatenate
 
-import muse.models.diffusion.schedulers.batch_ddpm_scheduler as ddpm_sched
-
 class DiffusionPolicyModel(Model):
     """
     This model implements Diffusion in the style of DiffusionPolicy.
@@ -87,7 +85,9 @@ class DiffusionPolicyModel(Model):
                            generator=None,
                            ):
         scheduler = self.noise_scheduler
-        if isinstance(scheduler, ddpm_sched.BatchDDPMScheduler):
+        scheduler.set_timesteps(self.num_inference_steps)
+
+        if scheduler._is_parallel_scheduler:
             return self.parallel_conditional_sample(condition_data, condition_mask, local_cond, global_cond, generator)
 
         trajectory = torch.randn(
@@ -95,9 +95,6 @@ class DiffusionPolicyModel(Model):
             dtype=condition_data.dtype,
             device=condition_data.device,
             generator=generator)
-
-        # set step values
-        scheduler.set_timesteps(self.num_inference_steps)
 
         for t in scheduler.timesteps:
             # 1. apply conditioning
@@ -124,9 +121,12 @@ class DiffusionPolicyModel(Model):
                            generator=None, parallel=20, tolerance=1.0,
                            ):
         scheduler = self.noise_scheduler
+        scheduler.set_timesteps(self.num_inference_steps, device=condition_data.device)
+
+        parallel = min(parallel, len(scheduler.timesteps))
 
         # make sure arguments are valid
-        assert isinstance(scheduler, ddpm_sched.BatchDDPMScheduler)
+        assert scheduler._is_parallel_scheduler
         assert parallel <= len(scheduler.timesteps)
         assert tolerance > 0.0
 
@@ -135,9 +135,6 @@ class DiffusionPolicyModel(Model):
             dtype=condition_data.dtype,
             device=condition_data.device,
             generator=generator)
-
-        # set step values
-        scheduler.set_timesteps(self.num_inference_steps, device=condition_data.device)
 
         # set up parallel utilities
         def flatten_batch_dims(x):
@@ -190,6 +187,8 @@ class DiffusionPolicyModel(Model):
             cumulative_delta = torch.cumsum(delta, dim=0)
             cumulative_variance = torch.cumsum(variance_array[begin_idx:end_idx], dim=0)
 
+            if scheduler._is_ode_scheduler:
+                cumulative_variance = 0
             block_trajectory_new = trajectory_time_evolution_buffer[begin_idx][None,] + cumulative_delta + cumulative_variance
             cur_error = torch.linalg.norm( (block_trajectory_new - trajectory_time_evolution_buffer[begin_idx+1:end_idx+1]).reshape(parallel_len, -1), dim=1)
             error_ratio = cur_error * inverse_variance_norm[begin_idx:end_idx]
