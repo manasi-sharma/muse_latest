@@ -55,11 +55,15 @@ class BaseGoalTrainer:
         self._model = model
         self._device = self._model.device
 
+        # model for use in eval / saving
+        self._eval_model = model
+        self._save_eval_model = get_with_default(params, "save_eval_model", True)
+
         self._policy = policy
 
         self._goal_policy = goal_policy
         self._goal_update_fn = get_with_default(params, "goal_update_fn", None)
-        self._goal_id_name = get_with_default(params, "_goal_id_name", "goal_id")
+        self._goal_id_name = get_with_default(params, "goal_id_name", "goal_id")
 
         self._policy_holdout = policy_holdout if policy_holdout is not None else self._policy
         self._goal_policy_holdout = goal_policy_holdout if goal_policy_holdout is not None else self._goal_policy
@@ -180,6 +184,9 @@ class BaseGoalTrainer:
         # optimizers
         self._init_optimizers(params)
 
+        # stabilizers (e.g. EMA)
+        self._init_stabilizers(params)
+
         logger.debug(f"==== Training ====")
         if self._optimizer is not None:
             logger.debug(f"Optimizer: {self._optimizer}")
@@ -223,6 +230,9 @@ class BaseGoalTrainer:
 
     def _init_optimizers(self, params):
         self._optimizer = None
+        raise NotImplementedError
+
+    def _init_stabilizers(self, params):
         raise NotImplementedError
 
     def _write_step(self, model, loss, inputs, outputs, meta: AttrDict = AttrDict(), **kwargs):
@@ -625,7 +635,7 @@ class BaseGoalTrainer:
         base_fname = "model.pt"
         path = os.path.join(self._file_manager.models_dir, base_fname)
         save_data = {'step': self._current_step,
-                     'model': self._model.state_dict()}
+                     'model': self._eval_model.state_dict() if self._save_eval_model else self._model.state_dict()}
         save_data.update(self._get_save_meta_data())
 
         if self._track_best_name is not None:

@@ -109,7 +109,7 @@ class BatchDPMSolverMultistepScheduler(DPMSolverMultistepScheduler):
             )
 
             model_outputs_list = [model_output[:-2], model_output[1:-1], model_output[2:]]
-            timestep_list = [t[:-2], t[1:,-1], t[2:]]
+            timestep_list = [t[:-2], t[1:-1], t[2:]]
             prev_sample3 = self.multistep_dpm_solver_third_order_update(
                 model_outputs_list, timestep_list, prev_t[2:], sample[2:]
             )

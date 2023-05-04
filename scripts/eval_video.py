@@ -54,8 +54,10 @@ else:
     model_fname = os.path.join(file_manager.models_dir, "model.pt")
     logger.debug("Using default model for current eval: {}".format(model_fname))
 
-save_path = file_path_with_default_dir(args.save_file, file_manager.exp_video_dir)
-logger.debug(f"Video will save to {save_path}")
+save_path = None
+if args.save_file is not None:
+    save_path = file_path_with_default_dir(args.save_file, file_manager.exp_video_dir)
+    logger.debug(f"Video will save to {save_path}")
 
 # generate env
 env_spec = params.env_spec.cls(params.env_spec)
