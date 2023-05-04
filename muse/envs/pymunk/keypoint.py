@@ -56,7 +56,7 @@ class PymunkKeypointManager:
         rng = np.random.default_rng(seed=seed)
         local_keypoint_map = dict()
         for name in ['block', 'agent']:
-            self = copy.deepcopy(env)
+            self = env
             self.space = pymunk.Space()
             if name == 'agent':
                 self.agent = obj = self.add_circle((256, 400), 15)

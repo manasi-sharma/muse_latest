@@ -42,7 +42,8 @@ class PushTEnv(Env):
     def __init__(self, params, env_spec: EnvSpec):
         super().__init__(params, env_spec)
 
-        self._seed = params << 'seed'
+        self._init_seed = params << 'seed'
+        self._seed = None
         self.seed()
 
         # The size of the PyGame window
@@ -56,7 +57,7 @@ class PushTEnv(Env):
             self.local_keypoint_map = params << 'local_keypoint_map'
             self.color_map = params << 'color_map'
             if self.local_keypoint_map is None:
-                kp_kwargs = genenerate_keypoint_manager_params(self)
+                kp_kwargs = genenerate_keypoint_manager_params(PushTEnv(params & AttrDict(keypoint_goal=False), env_spec))
                 self.local_keypoint_map = kp_kwargs['local_keypoint_map']
                 self.color_map = kp_kwargs['color_map']
 
@@ -128,7 +129,6 @@ class PushTEnv(Env):
 
         logger.debug(f"Resetting PushT...")
 
-        seed = self._seed
         self._setup()
         if self.block_cog is not None:
             self.block.center_of_gravity = self.block_cog
@@ -138,7 +138,7 @@ class PushTEnv(Env):
         # use legacy RandomState for compatibility
         state = self.reset_to_state
         if state is None:
-            rs = np.random.RandomState(seed=seed)
+            rs = np.random.RandomState(seed=self._seed)
             state = np.array([
                 rs.randint(50, 450), rs.randint(50, 450),
                 rs.randint(100, 400), rs.randint(100, 400),
@@ -159,6 +159,9 @@ class PushTEnv(Env):
             self.screen = canvas
 
             if self.draw_keypoints:
+                self.obj_map = {
+                    'block': self.block
+                }
                 # get keypoints
                 self.kp_map = self.kp_manager.get_keypoints_global(
                     pose_map=self.obj_map, is_obj=True)
@@ -168,6 +171,7 @@ class PushTEnv(Env):
 
         self._curr_step = 0
         observation = self._get_obs()
+        # print(observation.keypoint)
         return observation, AttrDict()
 
     def step(self, action):
@@ -217,6 +221,9 @@ class PushTEnv(Env):
             obs['n_contacts'] = np.array([int(np.ceil(self.n_contact_points / (self.sim_hz // self.control_hz)))])
 
         if self.keypoint_goal:
+            self.obj_map = {
+                'block': self.block
+            }
             # get keypoints
             self.kp_map = self.kp_manager.get_keypoints_global(
                 pose_map=self.obj_map, is_obj=True)
@@ -246,11 +253,10 @@ class PushTEnv(Env):
 
         return self._env_spec.map_to_types(obs).leaf_apply(lambda arr: arr[None])
 
-    def seed(self, seed=None):
-        if seed is None:
-            seed = np.random.randint(0, 25536)
-        self._seed = seed
-        self.np_random = np.random.default_rng(seed)
+    def seed(self):
+        if self._init_seed is not None:
+            self._seed = self._init_seed
+            self.np_random = np.random.default_rng(self._seed)
 
     def _setup(self):
         self.space = pymunk.Space()
@@ -282,9 +288,6 @@ class PushTEnv(Env):
         self.max_score = 50 * 100
         self.success_threshold = 0.95  # 95% coverage.
 
-        self.obj_map = {
-            'block': self.block
-        }
         self.kp_map = None
         # if self.agent_keypoints:
         #     self.kp_map['agent'] = self.agent
@@ -421,7 +424,7 @@ class PushTEnv(Env):
         img_size=96,
         imgs=False,
         render=False,
-        reset_to_state=None
+        reset_to_state=None,  # np.array([222., 97., 222.99382, 381.59903, 3.0079994])  # TODO remove
     )
 
     # TO DO: AttrDict: Finish AttrDict default env specs (ParamEnvSpec)

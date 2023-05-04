@@ -33,7 +33,10 @@ class ReplayPolicy(Policy):
             self._start_indices = np.concatenate([[0], self._split_indices[:-1]])
             self._demo_actions.leaf_modify(
                 lambda arr: arr[self._start_indices[self._ep_idx]:self._split_indices[self._ep_idx]])
-        
+
+            # print('kp')
+            # print(self._demo_data['keypoint'][self._start_indices[self._ep_idx]])
+
         self._demo_len = len(self._demo_actions.get_one())
         self._counter = 0
         self._demo_counter = 0  # used for cycling
