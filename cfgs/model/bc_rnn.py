@@ -6,7 +6,7 @@ from muse.utils.loss_utils import get_default_mae_action_loss_fn, mse_err_fn, ge
 from attrdict import AttrDict as d
 
 export = d(
-    exp_name='_bc-l2',
+    exp_name='_{?use_goal:gc}bc-l2',
     cls=BaseGCBC,
     use_goal=False,
     use_last_state_goal=False,
