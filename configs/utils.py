@@ -214,6 +214,7 @@ def try_import_source(source):
         if os.path.exists(source):
             # load a file as a module
             source = import_config_file(source)
+            assert hasattr(source, 'export')
         elif importlib.util.find_spec(source):
             # load a module directly (with dot notation)
             source = importlib.import_module(source)

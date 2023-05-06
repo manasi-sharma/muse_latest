@@ -406,14 +406,15 @@ class GroupStruct:
             self.params = self.params & self.source
 
             self.cls = self.params << 'cls'
-
-        elif self.source and issubclass(self.source, ConfigNode):
-            # source specifies some sub class of ConfigNode
+        elif self.source and inspect.isclass(self.source) and issubclass(self.source, ConfigNode):
+            # source specifies some subclass of ConfigNode
             self.config_cls = self.source
-        else:
+        elif inspect.isclass(self.source):
             # source is specifying the inner class, which means wrap it.
             self.config_cls = ConfigNode
             self.cls = self.source
+        else:
+            raise NotImplementedError(f"[{name}] Invalid source type: {type(self.source)}")
 
         assert issubclass(self.config_cls, ConfigNode), f"Invalid config class: {self.config_cls}"
 
