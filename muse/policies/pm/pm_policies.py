@@ -56,16 +56,28 @@ class PMDirectPolicy(Policy):
 class PMObstacleDirectPolicy(Policy):
 
     def _init_params_to_attrs(self, params):
+        # 2D gaussian noise
+        self.noise_std = get_with_default(params, "noise_std", 0.)
+        # 1D angular gaussian noise (degrees)
+        self.theta_noise_std = get_with_default(params, "theta_noise_std", 0.)
+        self.random_side = get_with_default(params, "random_side", True)
+
         # max speed by default
         self.speed = get_with_default(params, "speed", 1.0)
-        self.noise_std = get_with_default(params, "noise_std", 0.)
-        self.random_side = get_with_default(params, "random_side", True)
+        # addition to desired speed, will be clipped to [0., 1.]
+        self.speed_noise_std = get_with_default(params, "speed_noise_std", 0.)
+        # likelihood of stopping
+        self.stop_prob = get_with_default(params, "stop_prob", 0.)
+        # how long to stop for (uniformly sampled)
+        self.stop_duration_range = get_with_default(params, "stop_duration", [2, 8])
 
     def _init_setup(self):
         assert isinstance(self._env, PointMassEnv) and self._env.num_obstacles == 1
         self.obstacle_loc = None
         self.mid_point = None
         self.reached_midpoint = False
+
+        self.stop_steps = 0
 
     def warm_start(self, model, observation, goal):
         pass
@@ -83,6 +95,35 @@ class PMObstacleDirectPolicy(Policy):
             t = min((1 - self.obstacle_loc[0]) / rot90_line[0], - self.obstacle_loc[1] / rot90_line[1])
         self.mid_point = rot90_line * t / 2 + self.obstacle_loc
         self.reached_midpoint = False
+
+    def update_velocity(self, vel):
+        vel = vel.copy()
+
+        # theta noise std
+        if self.theta_noise_std > 0.:
+            theta = np.arctan2(vel[1], vel[0])
+            norm = np.linalg.norm(vel)
+            theta += np.random.normal(0, np.deg2rad(self.theta_noise_std))
+            vel[:] = norm * np.array([np.cos(theta), np.sin(theta)])
+
+        if self.speed_noise_std > 0.:
+            norm = np.linalg.norm(vel)
+            # slow down only
+            new_norm = np.clip(norm - np.abs(np.random.normal(0, self.speed_noise_std)), 0, 1.)
+            vel[:] = new_norm / (norm + 1e-11) * vel
+
+        # noise_std scaled to match environment noise_std
+        if self.noise_std > 0.:
+            vel[:] += np.random.normal(0, self.noise_std, 2) / self._env.ego_speed
+
+        if self.stop_steps == 0 and np.random.rand() < self.stop_prob:
+            self.stop_steps = np.random.randint(*self.stop_duration_range)
+
+        if self.stop_steps > 0:
+            vel[:] = 0.
+            self.stop_steps -= 1
+
+        return vel
 
     def get_action(self, model, observation, goal, **kwargs):
         """
@@ -112,9 +153,7 @@ class PMObstacleDirectPolicy(Policy):
         if not self.reached_midpoint and np.linalg.norm(targ - (ego + vel * self._env.ego_speed)) < 0.01:
             self.reached_midpoint = True
 
-        # noise_std scaled to match environment noise_std
-        if self.noise_std > 0.:
-            vel[:] += np.random.normal(0, self.noise_std, 2) / self._env.ego_speed
+        vel = self.update_velocity(vel)
 
         return d(
             action=vel[None],

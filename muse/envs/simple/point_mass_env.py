@@ -150,7 +150,7 @@ class PointMassEnv(Env):
             next_obs = next_obs + self.ego_speed * base_action
         self._obs = next_obs
 
-        vel = base_action / np.linalg.norm(base_action)
+        vel = base_action / (np.linalg.norm(base_action) + 1e-11)
 
         direction = self._target - self._obs
         norm_direction = direction / np.linalg.norm(direction)

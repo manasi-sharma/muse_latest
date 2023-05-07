@@ -15,5 +15,8 @@ export = d(
         cls=PMObstacleDirectPolicy,
         speed=1.0,  # max speed
         noise_std=0.,
+        theta_noise_std=0.,
+        speed_noise_std=0.,
+        stop_prob=0.,
     ),
 )
