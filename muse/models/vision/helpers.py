@@ -12,7 +12,8 @@ from muse.utils.param_utils import LayerParams
 
 
 def get_resnet18_encoder_layer(image_shape, crop_random_frac=0.9, use_spatial_softmax=True, use_color_randomizer=False,
-                               use_erasing_randomizer=False, img_embed_size=64, downsample_frac=1.0):
+                               use_erasing_randomizer=False, img_embed_size=64, downsample_frac=1.0,
+                               use_group_norm=False):
 
     # randomizers
     randomizers = []
@@ -47,7 +48,7 @@ def get_resnet18_encoder_layer(image_shape, crop_random_frac=0.9, use_spatial_so
     # resnet18 outputs 512 channels, optional projection to img_embed_size if not using spatial_softmax
     return LayerParams('vision_core', name='resnet18', flip=True, flatten=True, cut_last=cut_last,
                        out_shape=(img_embed_size,) if use_spatial_softmax else final_out_shape,
-                       extra_conv_layers=extra_conv, randomizers=randomizers)
+                       extra_conv_layers=extra_conv, randomizers=randomizers, use_group_norm=use_group_norm)
 
 
 def get_reset18_partial_embedding_layer(remove_last=4, flip=False):
