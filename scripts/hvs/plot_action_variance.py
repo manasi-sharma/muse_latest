@@ -141,12 +141,17 @@ for i in range(N):
 # average to get the variance (uniformly likely samples
 var = each_var.mean(axis=0)
 
+logger.debug('-----------------------------------------------------------')
+
+logger.debug(f'Files = {args.file}')
 for dim in range(nd):
     logger.debug(f'Var[{dim}] = {var[dim]}')
 logger.debug(f'Total Var = {var.sum()}')
 
 logger.debug(f'Bin size, avg={cluster_bin_sizes.mean()}, med={np.median(cluster_bin_sizes)}, '
              f'range=[{np.min(cluster_bin_sizes)}, {np.max(cluster_bin_sizes)}]')
+
+logger.debug('-----------------------------------------------------------')
 
 def get_plotting_state(code):
     # re extract only the "state", e.g. the last state (corresponding to current time step)
