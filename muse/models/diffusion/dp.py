@@ -87,7 +87,7 @@ class DiffusionPolicyModel(Model):
         scheduler = self.noise_scheduler
         scheduler.set_timesteps(self.num_inference_steps)
 
-        if scheduler._is_parallel_scheduler:
+        if hasattr(scheduler, '_is_parallel_scheduler') and scheduler._is_parallel_scheduler:
             return self.parallel_conditional_sample(condition_data, condition_mask, local_cond, global_cond, generator)
 
         trajectory = torch.randn(
