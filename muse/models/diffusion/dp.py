@@ -118,7 +118,7 @@ class DiffusionPolicyModel(Model):
     def parallel_conditional_sample(self,
                            condition_data, condition_mask,
                            local_cond=None, global_cond=None,
-                           generator=None, parallel=20, tolerance=1.0,
+                           generator=None, parallel=20, tolerance=0.1,
                            ):
         scheduler = self.noise_scheduler
         scheduler.set_timesteps(self.num_inference_steps, device=condition_data.device)
@@ -148,12 +148,16 @@ class DiffusionPolicyModel(Model):
 
         trajectory_time_evolution_buffer = torch.stack([trajectory] * (len(scheduler.timesteps)+1))
 
-        variance_array = torch.zeros_like(trajectory_time_evolution_buffer)
+        noise_array = torch.zeros_like(trajectory_time_evolution_buffer)
         for j in range(len(scheduler.timesteps)):
-            variance_noise = torch.randn_like(trajectory_time_evolution_buffer[0]) # should use generator (waiting for pytorch add to randn_like)
-            variance = (scheduler._get_variance(scheduler.timesteps[j]) ** 0.5) * variance_noise
-            variance_array[j] = variance.clone()
-        inverse_variance_norm = 1. / torch.linalg.norm(variance_array.reshape(len(scheduler.timesteps)+1, -1), dim=1)
+            base_noise = torch.randn_like(trajectory_time_evolution_buffer[0]) # should use generator (waiting for pytorch add to randn_like)
+            noise = (scheduler._get_variance(scheduler.timesteps[j]) ** 0.5) * base_noise
+            noise_array[j] = noise.clone()
+        inverse_variance_norm = 1. / torch.tensor([scheduler._get_variance(scheduler.timesteps[j]) for j in range(len(scheduler.timesteps))] + [0]).to(noise_array.device)
+        inverse_variance_norm /= noise_array[0].numel()
+
+        blocks_estimate = len(scheduler.timesteps) // parallel
+        scaled_tolerance = 4 * (tolerance**2) #/ (blocks_estimate**2)
 
         while begin_idx < len(scheduler.timesteps):
 
@@ -185,19 +189,22 @@ class DiffusionPolicyModel(Model):
             # parallel update
             delta = block_trajectory_denoise - block_trajectory
             cumulative_delta = torch.cumsum(delta, dim=0)
-            cumulative_variance = torch.cumsum(variance_array[begin_idx:end_idx], dim=0)
+            cumulative_noise = torch.cumsum(noise_array[begin_idx:end_idx], dim=0)
 
             if scheduler._is_ode_scheduler:
-                cumulative_variance = 0
-            block_trajectory_new = trajectory_time_evolution_buffer[begin_idx][None,] + cumulative_delta + cumulative_variance
-            cur_error = torch.linalg.norm( (block_trajectory_new - trajectory_time_evolution_buffer[begin_idx+1:end_idx+1]).reshape(parallel_len, -1), dim=1)
-            error_ratio = cur_error * inverse_variance_norm[begin_idx:end_idx]
+                cumulative_noise = 0
+            block_trajectory_new = trajectory_time_evolution_buffer[begin_idx][None,] + cumulative_delta + cumulative_noise
+            cur_error = torch.linalg.norm( (block_trajectory_new - trajectory_time_evolution_buffer[begin_idx+1:end_idx+1]).reshape(parallel_len, -1), dim=1).pow(2)
+            error_ratio = cur_error * inverse_variance_norm[begin_idx+1:end_idx+1]
+            # print(cur_error)
+            # print(error_ratio)
+
 
             # find the first index of the vector error_ratio that is greater than error tolerance
-            error_ratio = torch.nn.functional.pad(error_ratio, (0,1), value=1e9) # handle the case when everything is below ratio
-            ind = torch.argmax( (error_ratio > tolerance).int() ).item()
+            error_ratio = torch.nn.functional.pad(error_ratio, (0,1), value=1e9) # handle the case when everything is below tolerance
+            ind = torch.argmax( (error_ratio > scaled_tolerance).int() ).item() # first element that is one
 
-            new_begin_idx = begin_idx + max(1, ind)
+            new_begin_idx = begin_idx + 1 + ind
             new_end_idx = min(new_begin_idx + parallel, len(scheduler.timesteps))
 
             trajectory_time_evolution_buffer[begin_idx+1:end_idx+1] = block_trajectory_new

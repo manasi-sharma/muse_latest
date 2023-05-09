@@ -4,6 +4,7 @@ Evaluate a policy and model in an environment. No saving of data (see scripts/co
 
 import os
 import sys
+from collections import defaultdict
 
 import numpy as np
 import torch
@@ -78,6 +79,9 @@ ep = 0
 steps = 0
 reward_reduce = reduce_map_fn[args.reduce_returns]
 
+aggregate_elapsed_time_dict = defaultdict(list)
+aggregate_steps = []
+
 while True:
     if done[0] or policy.is_terminated(model, obs, goal):
         logger.info(f"[{ep}] Resetting env after {i} steps")
@@ -87,6 +91,7 @@ while True:
             all_returns.append(returns)
         rew_list = []
         steps += i
+        aggregate_steps.append(i)
         i = 0
         ep += 1
         # terminate condition
@@ -94,6 +99,22 @@ while True:
             break
         obs, goal = env.reset()
         policy.reset_policy(next_obs=obs, next_goal=goal)
+
+        logger.debug(timeit)
+        elapsed_time_dict = list(timeit.timeit_by_thread.values())[0].elapsed_times
+        for k, v in elapsed_time_dict.items():
+            aggregate_elapsed_time_dict[k].append(v)
+
+        for k, v in aggregate_elapsed_time_dict.items():
+            vals = np.array(v)
+            print("%s %.3f %.3f %u" % (k, vals.mean(), vals.std(), len(vals)))
+        print("returns %.3f %.3f %u" % (np.mean(all_returns), np.std(all_returns), len(all_returns)))
+        print("steps %.3f %.3f %u" % (np.mean(aggregate_steps), np.std(aggregate_steps), len(aggregate_steps)))
+
+        sec_per_step = np.mean(aggregate_elapsed_time_dict['gcbc/decoder']) / np.mean(aggregate_steps)
+        print("sec/step %.5f step/sec %.5f" % (sec_per_step, 1.0 / sec_per_step), flush=True)
+
+
         timeit.reset()
 
     # empty axes for (batch_size, horizon)

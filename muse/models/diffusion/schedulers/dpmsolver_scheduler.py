@@ -23,6 +23,7 @@ from diffusers.schedulers.scheduling_utils import SchedulerOutput
 # custom class definition to add generator arg and add model clamp
 
 class MyDPMSolverMultistepScheduler(DPMSolverMultistepScheduler):
+
     def step(
         self,
         model_output: torch.FloatTensor,

@@ -72,7 +72,6 @@ class BatchDPMSolverMultistepScheduler(DPMSolverMultistepScheduler):
         prev_t = self.timesteps[ torch.clip(step_index+1, max=len(self.timesteps) - 1) ]
         prev_t[edgecases] = 0
 
-        wrapped_timesteps = self.timesteps.view(-1, *([1]*(model_output.ndim - 1)))
         t = t.view(-1, *([1]*(model_output.ndim - 1)))
         prev_t = prev_t.view(-1, *([1]*(model_output.ndim - 1)))
         

@@ -24,3 +24,5 @@ cloudpickle
 pygame
 gymnasium
 einops
+termcolor
+robosuite
