@@ -262,6 +262,14 @@ class Model(torch.nn.Module, BaseClass):
 
         assert "mean" in dd.keys() and "std" in dd.keys()
         for name in self.save_normalization_inputs:
+
+            if self.do_minmax_norm:
+                # normalize to -1 -> 1 in the data distribution
+                max = dd.max[name]
+                min = dd.min[name]
+                dd.mean[name] = (max + min) / 2
+                dd.std[name] = (max - min) / 2
+
             if name in self.norm_overrides:
                 logger.warn(f"Overriding {name} statistics with user-specified!")
                 dd.mean[name] = to_torch(self.norm_overrides[name].mean, device=self._device, check=True)

@@ -4,14 +4,11 @@ from cfgs.exp_hvs.square import vis_dp_conv_1d as sq_vis_dp_conv_1d
 
 from attrdict import AttrDict as d
 
-from configs.fields import Field as F
+from configs.fields import Field as F, GroupField
 
 from muse.envs.robosuite.robosuite_env import RobosuiteEnv
 from muse.envs.robosuite.robosuite_utils import modify_spec_prms, get_rs_online_action_postproc_fn
 from muse.policies.memory_policy import get_timeout_terminate_fn
-
-env_spec_prms = RobosuiteEnv.get_default_env_spec_params(kitchen.export)
-env_spec_prms = modify_spec_prms(env_spec_prms, no_object=True)
 
 export = sq_vis_dp_conv_1d.export.node_leaf_without_keys(
     ['dataset_train', 'dataset_holdout', 'env_spec', 'env_train']) & d(
@@ -20,7 +17,8 @@ export = sq_vis_dp_conv_1d.export.node_leaf_without_keys(
     dataset='human_buds-kitchen_60k_eimgs',
 
     env_train=kitchen.export,
-    env_spec=env_spec_prms,
+    env_spec=GroupField('env_train', lambda p: modify_spec_prms(
+        RobosuiteEnv.get_default_env_spec_params(p), no_object=True)),
 
     model=d(
         goal_names=[],
