@@ -93,7 +93,7 @@ class RobosuiteEnv(Env):
         self._use_rot6d = get_with_default(params, "use_rot6d", False)
         assert not self._use_rot6d or not self._use_delta, "cannot Use delta and use rot 6d representation!"
 
-        logger.debug(f"Env {self._env_name} using controller: {self._controller}")
+        logger.debug(f"Env {self._env_name} using controller: {self._controller}, use_delta={self._use_delta}")
 
         # rendering (onscreen and offscreen)
         self._onscreen_camera_name = get_with_default(params, "onscreen_camera_name", "agentview")
@@ -236,7 +236,7 @@ class RobosuiteEnv(Env):
         self._action = base_action
 
         # STEP
-        obs, self._reward, self._done, info = self._base_env.step(base_action)
+        obs, self._reward, _, info = self._base_env.step(base_action)
         self._obs = self.get_dict_obs(di=obs)
 
         # override rewards
@@ -316,6 +316,8 @@ class RobosuiteEnv(Env):
         self._draw_actions = []
         obs = self.get_obs()
 
+        self._done = False
+
         # logger.debug(f"Object state: {obs.object}")
         return obs, self.get_goal()
 
@@ -333,6 +335,11 @@ class RobosuiteEnv(Env):
                 if "states" is in @state)
         """
         should_ret = False
+
+        self._reward = 0
+        self._stop_counter = 0
+        self._draw_actions = []
+
         if "model" in state:
             self._base_env.reset()
             xml = postprocess_model_xml(state["model"])
@@ -349,9 +356,12 @@ class RobosuiteEnv(Env):
 
         if "goal" in state:
             self._base_env.set_goal(**state["goal"])
+
+        self._obs = self.get_dict_obs()
         if should_ret:
             # only return obs if we've done a forward call - otherwise the observations will be garbage
-            return self.get_dict_obs()
+            return self._obs
+
         return None
 
     def get_state(self):
