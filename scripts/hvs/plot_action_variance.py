@@ -26,6 +26,7 @@ parser.add_argument('--action_key', type=str, help="Key in dataset to compute va
 parser.add_argument('--action_scale', type=float, nargs='+', default=[1], help="Weight of each action dim")
 parser.add_argument('--use_action_norm', action="store_true", help="normalize action scales.")
 parser.add_argument('--use_state_norm', action="store_true", help="normalize action scales.")
+parser.add_argument('--state_norm_file', type=str, default=None, help="use a different dataset for normalizing obs.")
 parser.add_argument('--save_file', type=str, default=None, help="Save animation here")
 parser.add_argument('--plot_axes', type=int, nargs='*', default=None,
                     help="2-3 idxs in data to correspond with x,y... one indexed. negative to scale by -1.")
@@ -44,7 +45,7 @@ parser.add_argument('--scale_minmax', action="store_true", help="x,y axes will b
 parser.add_argument('--chunk_size', type=int, default=5000)
 parser.add_argument('--clip_x', type=int, nargs=2, default=None)
 parser.add_argument('--clip_y', type=int, nargs=2, default=None)
-parser.add_argument('--cluster_frac', type=float, default=None, help='TODO Use this % of data nearest states as the basis')
+parser.add_argument('--cluster_n', type=int, default=None, help='TODO Use this % of data nearest states as the basis')
 parser.add_argument('--cluster_eps', type=float, default=None, help='If |s - s\'| < eps use s\' to compute basis')
 parser.add_argument('--max_var', type=float, default=None, help='use a constant max var for cmap')
 parser.add_argument('--draw_action_arrows', action='store_true', help='draw the cluster action(s)')
@@ -123,8 +124,13 @@ logger.debug("New Data shape: %s" % str(state_data.shape))
 logger.debug("New Action shape: %s" % str(action_data.shape))
 
 if args.use_state_norm:
-    mu = np.mean(state_data, axis=0)
-    sig = np.std(state_data, axis=0)
+    norm_state_data = state_data
+    if args.state_norm_file is not None:
+        logger.debug(f'Loading {args.state_norm_file} for normalizing states...')
+        norm_data = np.load(args.state_norm_file, allow_pickle=True) 
+        norm_state_data = np.concatenate([norm_data[k] for k in keys], axis=-1)
+    mu = np.mean(norm_state_data, axis=0)
+    sig = np.std(norm_state_data, axis=0)
     logger.debug(f"Using normalized state data: \nmu={mu}\nsigma={sig}")
     state_data = (state_data - mu[None]) / sig[None]
 
@@ -154,7 +160,21 @@ if args.cluster_eps is not None:
     cluster_sources = dist_mat <= eps
     cluster_bin_sizes = cluster_sources.sum(-1)
 else:
-    raise NotImplementedError('only epsilon based clustering is implemented')
+    assert args.cluster_n is not None
+    n = args.cluster_n
+    # N x N x D
+    dist_mat = []
+    for j in range(math.ceil(N / args.chunk_size)):
+        logger.debug(f'Chunk {j*args.chunk_size} -> {(j+1)*args.chunk_size}...')
+        diff = combine_after_dim(state_data[None] -
+                                 state_data[j*args.chunk_size:(j+1)*args.chunk_size, None], 2)
+        dist_mat.append(np.linalg.norm(diff, axis=-1))
+    logger.debug('Merging dist mats...')
+    dist_mat = np.concatenate(dist_mat, axis=0)
+    # N x n
+    cluster_sources = np.argpartition(dist_mat, kth=n, axis=-1)[:, :n]
+    cluster_bin_sizes = n * np.ones(cluster_sources.shape[0])
+    
 
 nd = action_data.shape[-1]
 
@@ -166,6 +186,8 @@ for i in range(N):
     cluster_source = cluster_sources[i]
     mean_action = action_data[cluster_source].mean(axis=0)
 
+    # sample variance for this cluster
+    # each_var[i] = ((action_data[cluster_source] - mean_action[None]) ** 2).mean(axis=0)
     each_var[i] = (action - mean_action) ** 2
 
 # average to get the variance (uniformly likely samples
