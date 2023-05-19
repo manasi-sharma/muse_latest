@@ -220,17 +220,17 @@ class PushTEnv(Env):
                 tuple(self.agent.position) + tuple(self.block.position) + (self.block.angle % (2 * np.pi),))
             obs['n_contacts'] = np.array([int(np.ceil(self.n_contact_points / (self.sim_hz // self.control_hz)))])
 
-        if self.keypoint_goal:
-            self.obj_map = {
-                'block': self.block
-            }
-            # get keypoints
-            self.kp_map = self.kp_manager.get_keypoints_global(
-                pose_map=self.obj_map, is_obj=True)
-            # python dict guerentee order of keys and values
-            kps = np.concatenate(list(self.kp_map.values()), axis=0)
+        #if self.keypoint_goal:
+        self.obj_map = {
+            'block': self.block
+        }
+        # get keypoints
+        self.kp_map = self.kp_manager.get_keypoints_global(
+            pose_map=self.obj_map, is_obj=True)
+        # python dict guerentee order of keys and values
+        kps = np.concatenate(list(self.kp_map.values()), axis=0)
 
-            obs['keypoint'] = kps
+        obs['keypoint'] = kps
 
         obs['goal_pose'] = self.goal_pose
 
@@ -452,10 +452,10 @@ class PushTEnv(Env):
                 ('coverage', (1,), (0, 1), np.float32),
                 ('action', (2,), (0, 512), np.float32),
             ],
-            observation_names=['state'] if simple else ['agent/position', 'block/position', 'block/angle'],
+            observation_names=['goal_pose'] + (['state'] if simple else ['agent/position', 'block/position', 'block/angle']) + (['keypoint'] if kp else []),
             output_observation_names=[],  # TODO reward?
             action_names=['action'],
-            goal_names=['keypoint'] if kp else ['goal_pose'],
+            goal_names=[],
             param_names=[],
             final_names=[],
         )
@@ -481,7 +481,7 @@ def get_online_action_postproc_fn():
 
 if __name__ == '__main__':
 
-    env = make(PushTEnv, AttrDict())
+    env = make(PushTEnv, AttrDict(render=True))
 
     env.reset()
 
