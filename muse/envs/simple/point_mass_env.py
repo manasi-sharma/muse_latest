@@ -3,11 +3,12 @@ import numpy as np
 
 from muse.envs.env import Env, make
 from muse.envs.env_spec import EnvSpec
-from muse.utils.general_utils import value_if_none
+from muse.utils.general_utils import value_if_none, is_array
 from muse.utils.np_utils import line_circle_intersection
 from attrdict import AttrDict
 from attrdict.utils import get_with_default
 from muse.utils.torch_utils import to_numpy
+from muse.experiments import logger
 
 
 class PMObstacle:
@@ -18,6 +19,7 @@ class PMObstacle:
     - step: alter path of target based on obstacle
     - rendering
     """
+
     def __init__(self, center=(0., 0.), radius=0.1):
         self.center = np.asarray(center, dtype=np.float32)
         self.radius = float(radius)
@@ -25,6 +27,10 @@ class PMObstacle:
     def is_colliding(self, point, ret_distance=False):
         norm = np.linalg.norm(np.asarray(point, dtype=np.float32) - self.center)
         return (norm <= self.radius, norm) if ret_distance else norm <= self.radius
+
+    def is_inside(self, point, ret_distance=False):
+        norm = np.linalg.norm(np.asarray(point, dtype=np.float32) - self.center)
+        return (norm < self.radius - 1e-9, norm) if ret_distance else norm < self.radius - 1e-9
 
     def collision_safe_next_point(self, point, next_point):
         point, next_point = np.asarray(point), np.asarray(next_point)
@@ -60,6 +66,7 @@ class PointMassEnv(Env):
     """
     Simple 2D point mass environment.
     """
+
     def __init__(self, params, env_spec: EnvSpec):
         super().__init__(params, env_spec)
 
@@ -70,13 +77,15 @@ class PointMassEnv(Env):
         self._theta_noise_std = params["theta_noise_std"]
         self._sparse_reward = get_with_default(params, "sparse_reward", True)
         self._target_speed = params["target_speed"]
-        self._ego_speed = params["ego_speed"]
+        self.ego_speed = params["ego_speed"]
 
         self._init_obs = params << "initial_obs"
         self._init_targ = params << "initial_target"
 
         # optional obstacles (circles) will be spawned on the field, which the target and ego cannot go through.
         self.num_obstacles = get_with_default(params, "num_obstacles", 0)
+        # if True, ep ends if u go into obstacle
+        self.done_on_obstacle = get_with_default(params, "done_on_obstacle", False)
         self.obstacle_bounds = get_with_default(params, "obstacle_bounds", [0.25, 0.75])  # random bounds for init
         self.obstacle_radii = get_with_default(params, "obstacle_radii", [0.05 for _ in range(self.num_obstacles)])
         self.obstacle_face_colors = get_with_default(params, "obstacle_face_colors",
@@ -129,13 +138,19 @@ class PointMassEnv(Env):
         base_action = to_numpy(action.action[0], check=True)
 
         # OBSTACLE SAFE noisy velocity control
-        next_obs = self._obs + self._ego_speed * base_action + np.random.randn(2) * self._noise_std
+        next_obs = self._obs + np.random.normal(0, self._noise_std, 2)
+        if not self.done_on_obstacle:
+            # action will be prevented from leading into obstacle
+            next_obs = next_obs + self.ego_speed * base_action
         for o in self.obstacles:
             # each can only reduce the norm
             next_obs = o.collision_safe_next_point(self._obs, next_obs)
+        if self.done_on_obstacle:
+            # action might lead us into an obstacle, in which case the episode will end
+            next_obs = next_obs + self.ego_speed * base_action
         self._obs = next_obs
 
-        vel = base_action / np.linalg.norm(base_action)
+        vel = base_action / (np.linalg.norm(base_action) + 1e-11)
 
         direction = self._target - self._obs
         norm_direction = direction / np.linalg.norm(direction)
@@ -148,7 +163,7 @@ class PointMassEnv(Env):
         if np.random.random() < prob_run_away:  # running away behavior
             theta = np.random.normal(loc=np.arctan2(vel[1], vel[0]), scale=self._theta_noise_std) % (2 * np.pi)
         else:
-            theta = np.random.uniform(0, 2*np.pi)
+            theta = np.random.uniform(0, 2 * np.pi)
         self._target_vel = self._target_speed * np.array([np.cos(theta), np.sin(theta)])
 
         # OBSTACLE SAFE target motion
@@ -161,21 +176,24 @@ class PointMassEnv(Env):
         self._obs = np.clip(self._obs, 0, 1)
         self._target = np.clip(self._target, 0, 1)
 
+        inside = any(self.obstacles[i].is_inside(self._obs) for i in range(self.num_obstacles))
+        collision = any(self.obstacles[i].is_colliding(self._obs) for i in range(self.num_obstacles))
+
         self._curr_step += 1
-        self._done = self._next_done or self._curr_step >= self._num_steps
+        self._done = self._next_done or self._curr_step >= self._num_steps or (self.done_on_obstacle and inside)
 
         if self._sparse_reward:
             self._reward = float(np.linalg.norm(self._obs - self._target) <= 0.01)
             self._next_done = self._reward > 0
-            if any(self.obstacles[i].is_colliding(self._obs) for i in range(self.num_obstacles)):
+            if not self.done_on_obstacle and collision:
                 self._reward += -1  # penalty for collision
         else:
             self._reward = - np.linalg.norm(self._obs - self._target)
             self._next_done = self._reward > -0.01
 
         if self._render:
-            self.line.set_data([self._obs[0]], [self._obs[0]])
-            self.line2.set_data([self._target[0]], [self._target[0]])
+            self.line.set_data([self._obs[0]], [self._obs[1]])
+            self.line2.set_data([self._target[0]], [self._target[1]])
             for i, o in enumerate(self.obstacles):
                 # update center if changed.
                 if self.obstacles_changed[i]:
@@ -189,6 +207,7 @@ class PointMassEnv(Env):
         return self.get_obs(), self.get_goal(), np.array([self._done])
 
     def reset(self, presets: AttrDict = None):
+        logger.debug('[PointMass] Resetting...')
         presets = value_if_none(presets, AttrDict())
         # EGO / TARGET
         # random if no default / preset is specified.
@@ -210,8 +229,9 @@ class PointMassEnv(Env):
                     margin = 0.005  # separation between obstacle and new obstacle to enforce
                     to_compare = [(self._obs, 0.), (self._target, 0.)] + \
                                  [(self.obstacles[j].center, self.obstacles[j].radius) for j in range(i)]
-                    has_clearance = [np.linalg.norm(self.obstacles[i].center - c) >= self.obstacles[i].radius + r + margin
-                                     for c, r in to_compare]  # compare to previous obstacles
+                    has_clearance = [
+                        np.linalg.norm(self.obstacles[i].center - c) >= self.obstacles[i].radius + r + margin
+                        for c, r in to_compare]  # compare to previous obstacles
                     if all(has_clearance):
                         break  # random initialization is non overlapping.
             else:
@@ -251,7 +271,8 @@ class PointMassEnv(Env):
             object_pos = np.stack([o.center for o in self.obstacles], axis=0)
             observation['objects/position'] = object_pos[None]
             observation['objects/size'] = np.asarray(self.obstacle_radii)[None]
-            observation['objects/contact'] = np.asarray([self.obstacles[i].is_colliding(self._obs) for i in range(self.num_obstacles)])[None]
+            observation['objects/contact'] = \
+                np.asarray([self.obstacles[i].is_colliding(self._obs) for i in range(self.num_obstacles)])[None]
         return self._env_spec.map_to_types(observation)
 
     def get_goal(self):
@@ -263,11 +284,12 @@ class PointMassEnv(Env):
     default_params = AttrDict(
         render=False,
         num_steps=100,
-        noise_std=0,
-        theta_noise_std=0,
-        target_speed=0.0125,
-        ego_speed=0.025,
+        noise_std=0.,
+        theta_noise_std=0.,
+        target_speed=0.025,
+        ego_speed=0.04,
         num_obstacles=0,
+        done_on_obstacle=False,
     )
 
     @staticmethod
@@ -302,9 +324,23 @@ class PointMassEnv(Env):
             final_names=[],
         )
 
+def get_online_action_postproc_fn():
+    # models can use this to post proc (e.g. normalize) actions with GCBCPolicy
+    def action_postproc(model, obs, out, policy_out_names,
+                        policy_out_norm_names=None,
+                        **kwargs):
+        if policy_out_norm_names is None:
+            policy_out_norm_names = policy_out_names
+
+        # normalize if any, then index along horizon
+        out.combine(model.normalize_by_statistics(out, policy_out_norm_names, inverse=True)
+                    .leaf_apply(lambda arr: (arr[:, 0] if is_array(arr) else arr)))
+
+    return action_postproc
+
 
 if __name__ == '__main__':
-    from muse.experiments import logger
+
     env = make(PointMassEnv, AttrDict(render=True))
 
     env.reset()

@@ -98,6 +98,13 @@ class WaypointPolicy(Policy):
         dori = T.quat2euler(T.quat_difference(goal_q, curr_q))
         # dori = np.zeros(3)  #orientation_error(T.euler2mat(wp_pose[3:]), T.euler2mat(ori))
 
+        # implemented as gaussian noise
+        if wp.noise is not None:
+            std = np.broadcast_to(wp.noise, dpos.shape[-1] + dori.shape[-1])
+            noise = np.random.normal(0, std)
+            dpos = dpos + noise[:dpos.shape[-1]]
+            dori = dori + noise[dpos.shape[-1]:]
+
         goal_gr = wp_grip
 
         # clipping based on the control range
@@ -146,16 +153,20 @@ def get_min_yaw(yaw):
     return allowed_yaws[min_idx] * sgn[min_idx] * np.sign(yaw)
 
 
-def get_nut_assembly_square_policy_params(obs, goal, env=None, random_motion=True):
+def get_nut_assembly_square_policy_params(obs, goal, env=None, random_motion=True, lin_vel_noise=0., ang_vel_noise=0.):
     keys = ['robot0_eef_pos', 'robot0_eef_eul', 'robot0_gripper_qpos', 'object']
     # index out batch and horizon
-    pos, _, grq, obj = (obs > keys).leaf_apply(lambda arr: to_numpy(arr[0], check=True)).get_keys_required(keys)
+    pos, _, grq, obj = (obs > keys).leaf_apply(lambda arr: to_numpy(arr[0, 0], check=True)).get_keys_required(keys)
     od, no = get_ordered_objects_from_arr(env, obj)
 
     base_ori = np.array([-np.pi, 0, 0])
     base_offset = np.array([0.06, 0., 0.])
     obj_q = od["objects/orientation"][0]
     offset = Rotation.from_quat(obj_q).apply(base_offset)
+
+    lin_std = np.broadcast_to(lin_vel_noise, (3,))
+    ang_std = np.broadcast_to(ang_vel_noise, (3,))
+    std = np.concatenate([lin_std, ang_std])
 
     obj_yaw = T.quat2euler(obj_q)[2]
     yaw = (obj_yaw + np.pi) % (2 * np.pi) - np.pi
@@ -183,7 +194,7 @@ def get_nut_assembly_square_policy_params(obs, goal, env=None, random_motion=Tru
     above = Waypoint(np.concatenate([offset + np.array([0., 0., 0.05]), ori]), -1, timeout=20 * 6,
                      relative_to_parent=False,
                      relative_to_object=0,
-                     relative_ori=False)
+                     relative_ori=False, noise=std)
 
     down = Waypoint(np.concatenate([offset, ori]), -1, timeout=20 * 1.5,
                     relative_to_parent=False,
@@ -201,7 +212,7 @@ def get_nut_assembly_square_policy_params(obs, goal, env=None, random_motion=Tru
     up_rot = Waypoint(np.concatenate([up_pos, ori_goal]), 1, timeout=20 * 3,
                       relative_to_parent=True,
                       relative_to_object=0,
-                      relative_ori=False, )
+                      relative_ori=False, noise=std)
 
     peg_pos = np.array(env.rs_env.sim.data.body_xpos[env.rs_env.peg1_body_id])
     obj_offset = Rotation.from_euler('z', desired_yaw - yaw + obj_yaw).apply(base_offset)
@@ -211,7 +222,7 @@ def get_nut_assembly_square_policy_params(obs, goal, env=None, random_motion=Tru
 
     above_peg = Waypoint(np.concatenate([peg_pos + obj_offset + np.array([0., 0., above_peg_z]), ori_goal]), 1,
                          timeout=20 * 8,
-                         relative_to_parent=False, )
+                         relative_to_parent=False, noise=std)
 
     on_peg = Waypoint(np.concatenate([np.array([0., 0., down_peg_z - above_peg_z]), ori_goal]), 1, timeout=20 * 2,
                       relative_to_parent=True, relative_to_robot=0, relative_ori=False)
@@ -225,7 +236,7 @@ def get_nut_assembly_square_policy_params(obs, goal, env=None, random_motion=Tru
 def get_tool_hang_policy_params(obs, goal, env=None, random_motion=True):
     keys = ['robot0_eef_pos', 'robot0_eef_eul', 'robot0_gripper_qpos', 'object']
     # index out batch and horizon
-    pos, _, grq, obj = (obs > keys).leaf_apply(lambda arr: to_numpy(arr[0], check=True)).get_keys_required(keys)
+    pos, _, grq, obj = (obs > keys).leaf_apply(lambda arr: to_numpy(arr[0, 0], check=True)).get_keys_required(keys)
 
     # object order is [base, frame, tool]
     od, no = get_ordered_objects_from_arr(env, obj)

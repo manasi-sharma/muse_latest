@@ -1,9 +1,8 @@
 import numpy as np
 import torch
-from torch import nn
 from torchvision import models as vms
 
-from muse.utils.torch_utils import combine_dims, split_dim, replace_submodules
+from muse.utils.torch_utils import combine_dims, split_dim
 
 
 class VisionCore(torch.nn.Module):
@@ -16,7 +15,7 @@ class VisionCore(torch.nn.Module):
     """
 
     def __init__(self, name, in_channels=3, flip=True, flatten=True, cut_last=0, out_shape=None,
-                 projection_size=None, randomizers=None, extra_conv_layers=[], use_group_norm=False, **kwargs):
+                 projection_size=None, randomizers=None, extra_conv_layers=[], **kwargs):
         super(VisionCore, self).__init__()
         # cut off last two layers
         self.name = name
@@ -25,15 +24,6 @@ class VisionCore(torch.nn.Module):
         # replace first layer if in channels are different.
         if in_channels != 3:
             net.conv1 = torch.nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
-
-        if use_group_norm:
-            net = replace_submodules(
-                root_module=net,
-                predicate=lambda x: isinstance(x, nn.BatchNorm2d),
-                func=lambda x: nn.GroupNorm(
-                    num_groups=x.num_features // 16,
-                    num_channels=x.num_features)
-            )
 
         # cut the last few layers (..., pooling, projection)
         layers = list(net.children())

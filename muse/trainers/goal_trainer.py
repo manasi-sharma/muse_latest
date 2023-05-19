@@ -55,6 +55,9 @@ class GoalTrainer(BaseGoalTrainer):
         self._datasets_train = datasets_train
         self._datasets_holdout = datasets_holdout
 
+        logger.debug(f'Using {len(self._datasets_train)} training datasets, '
+                     f'and {len(self._datasets_holdout)} holdout datasets')
+
         # get samplers
         self._dataset_samplers_train = self._init_samplers(datasets_train, sampler, group_name='train')
         self._dataset_samplers_holdout = self._init_samplers(datasets_holdout, sampler, group_name='holdout')

@@ -17,15 +17,13 @@ export = d(
     use_spatial_softmax=True,
     use_color_randomizer=False,
     use_erasing_randomizer=False,
-    use_group_norm=False,
     img_embed_size=64,
     downsample_frac=1.0,
 
     network=F(["image_shape", "crop_random_frac", "use_spatial_softmax", "use_color_randomizer",
-               "use_erasing_randomizer", "img_embed_size", "downsample_frac", "use_group_norm"],
-              lambda ims, crop, smax, color, erase, emb, down, ugn:
+               "use_erasing_randomizer", "img_embed_size", "downsample_frac"],
+              lambda ims, crop, smax, color, erase, emb, down:
               get_resnet18_encoder_layer(ims, crop_random_frac=crop, use_spatial_softmax=smax,
                                          use_color_randomizer=color,
-                                         use_erasing_randomizer=erase, img_embed_size=emb, downsample_frac=down,
-                                         use_group_norm=ugn,))
+                                         use_erasing_randomizer=erase, img_embed_size=emb, downsample_frac=down))
 )

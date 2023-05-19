@@ -246,7 +246,8 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('file', type=str, help='hdf5 file to load from')
     parser.add_argument('env_name', type=str,
-                        help='what type of environment is this? [NutAssemblySquare, ToolHang] supported so far')
+                        help='what type of environment is this? '
+                             '[NutAssemblySquare, ToolHang, PickPlaceCan] supported so far')
     parser.add_argument('--save_file', type=str, default=None, help='Optional npz file to output to')
     parser.add_argument('--ep_prefix', type=str, default="demo_", help='Prefix for episodes')
     parser.add_argument('--mask', type=str, nargs="*", default=None,

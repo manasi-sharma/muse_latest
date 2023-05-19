@@ -158,7 +158,7 @@ def kl_divergence_with_normal(mean, cov):
 
 def kl_divergence_with_normal_dist(dist):
     mean = dist.mean
-    v1 = dist.variance
+    v1 = dist.noise_std
     return 0.5 * (-v1.log().sum(-1) + v1.sum(-1) + mean.norm(dim=-1) ** 2 - v1.shape[-1])
 
 # linefit loss
