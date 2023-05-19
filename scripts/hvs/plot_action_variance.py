@@ -26,7 +26,7 @@ parser.add_argument('--action_key', type=str, help="Key in dataset to compute va
 parser.add_argument('--action_scale', type=float, nargs='+', default=[1], help="Weight of each action dim")
 parser.add_argument('--use_action_norm', action="store_true", help="normalize action scales.")
 parser.add_argument('--use_state_norm', action="store_true", help="normalize action scales.")
-parser.add_argument('--state_norm_file', type=str, default=None, help="use a different dataset for normalizing obs.")
+parser.add_argument('--state_norm_file', type=str, nargs='*', default=[], help="use a different dataset for normalizing obs.")
 parser.add_argument('--save_file', type=str, default=None, help="Save animation here")
 parser.add_argument('--plot_axes', type=int, nargs='*', default=None,
                     help="2-3 idxs in data to correspond with x,y... one indexed. negative to scale by -1.")
@@ -124,11 +124,15 @@ logger.debug("New Data shape: %s" % str(state_data.shape))
 logger.debug("New Action shape: %s" % str(action_data.shape))
 
 if args.use_state_norm:
-    norm_state_data = state_data
-    if args.state_norm_file is not None:
-        logger.debug(f'Loading {args.state_norm_file} for normalizing states...')
-        norm_data = np.load(args.state_norm_file, allow_pickle=True) 
-        norm_state_data = np.concatenate([norm_data[k] for k in keys], axis=-1)
+    norm_state_data = []
+    for f in args.state_norm_file:
+        logger.debug(f'Loading {f} for normalizing states...')
+        norm_data = np.load(f, allow_pickle=True)
+        norm_state_data.append(np.concatenate([norm_data[k] for k in keys], axis=-1))
+    if len(norm_state_data) > 0:
+        norm_state_data = np.concatenate(norm_state_data, axis=0)
+    else:
+        norm_state_data = state_data
     mu = np.mean(norm_state_data, axis=0)
     sig = np.std(norm_state_data, axis=0)
     logger.debug(f"Using normalized state data: \nmu={mu}\nsigma={sig}")

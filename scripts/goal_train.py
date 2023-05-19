@@ -15,6 +15,7 @@ if __name__ == '__main__':
     parser.add_argument('--print_all', action='store_true')
     parser.add_argument('--no_env', action='store_true')
     parser.add_argument('--do_holdout_env', action='store_true')
+    parser.add_argument('--no_holdout_ds', action='store_true')
     parser.add_argument('--different_env_holdout', action='store_true')
     parser.add_argument('--num_datasets', type=int, default=1)
     parser.add_argument('--model_dataset_idx', type=int, default=-1)
@@ -24,6 +25,7 @@ if __name__ == '__main__':
     parser.add_argument('--wandb_project', type=str, default='muse')
     parser.add_argument('--wandb_tags', type=str, default=None,
                         help='tags as colon separated string, e.g. "muse:bc"')
+    parser.add_argument('--no_wandb_continue', action='store_true')
     local_args, unknown = parser.parse_known_args()
 
     logger.debug(f"Raw command: \n{' '.join(sys.argv)}")
@@ -36,7 +38,8 @@ if __name__ == '__main__':
     file_manager = ExperimentFileManager(exp_name,
                                          is_continue=getattr(local_args, 'continue'),
                                          log_fname='log_train.txt',
-                                         config_fname=local_args.config,
+                                         config_fname=None if local_args.config.startswith("exp=")
+                                                            else local_args.config,
                                          extra_args=unknown)
 
     # instantiate classes from the params
@@ -63,9 +66,10 @@ if __name__ == '__main__':
         suffix = f"_{i}" if local_args.num_datasets > 1 else ""
         datasets_train.append(params[f"dataset_train{suffix}"].cls(params[f"dataset_train{suffix}"],
                                                                    env_spec, file_manager))
-        datasets_holdout.append(params[f"dataset_holdout{suffix}"].cls(params[f"dataset_holdout{suffix}"],
-                                                                       env_spec, file_manager,
-                                                                       base_dataset=datasets_train[-1]))
+        if not local_args.no_holdout_ds:
+            datasets_holdout.append(params[f"dataset_holdout{suffix}"].cls(params[f"dataset_holdout{suffix}"],
+                                                                           env_spec, file_manager,
+                                                                           base_dataset=datasets_train[-1]))
 
     # making model, default use the last dataset.
     model = params.model.cls(params.model, env_spec, datasets_train[local_args.model_dataset_idx])
@@ -99,7 +103,7 @@ if __name__ == '__main__':
         writer = WandbWriter(run_name,
                              AttrDict(project_name=local_args.wandb_project, config=params.as_dict(), tags=tags,
                                       force_id=local_args.wandb_force_id),
-                             file_manager, resume=getattr(local_args, 'continue'))
+                             file_manager, resume=getattr(local_args, 'continue') and not local_args.no_wandb_continue)
 
     # trainer
     trainer = params.trainer.cls(params.trainer,

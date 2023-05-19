@@ -23,9 +23,11 @@ export = bc_rnn.export.node_leaf_without_keys(['model']) & d(
     ),
 
     dataset_train=d(
+        initial_load_episodes=F('load_eps'),
         file=F('dataset', lambda x: f'data/hvs/{x}.npz'),
     ),
     dataset_holdout=d(
+        initial_load_episodes=F('load_eps'),
         file=F('dataset', lambda x: f'data/hvs/{x}.npz'),
     ),
 
