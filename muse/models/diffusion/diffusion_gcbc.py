@@ -37,7 +37,9 @@ class DiffusionConvActionDecoder(ActionDecoder):
         Argument('use_dpmsolver', action='store_true',
                  help='Use dpm-solver as the default noise scheduler.'),
         Argument('use_parallel', action='store_true',
-                 help='Use parallel sampling on top of scheduler.')
+                 help='Use parallel sampling on top of scheduler.'),
+        Argument('parallel_tolerance', type=float, default=0.001,
+                 help='Error tolerace when using ParaDiGMS.')
     ]
 
     def _init_params_to_attrs(self, params: d):
@@ -139,6 +141,7 @@ class DiffusionConvActionDecoder(ActionDecoder):
         # tag with attribute to indicate whether to use parallel sampling
         noise_scheduler._is_parallel_scheduler = self.use_parallel
         noise_scheduler._is_ode_scheduler = self.use_dpmsolver or self.use_ddim
+        noise_scheduler._parallel_tolerance = self.parallel_tolerance
 
         # override num_inference_steps to reduce the number of inference steps.
         return base_prms & d(
