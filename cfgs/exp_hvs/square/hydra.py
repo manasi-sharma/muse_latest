@@ -5,7 +5,7 @@ from cfgs.exp_hvs import smooth_dpp, mode2mask_dpp
 from cfgs.env import square
 from cfgs.model import hydra
 from cfgs.trainer import rm_goal_trainer
-from configs.fields import Field as F
+from configs.fields import Field as F, GroupField
 from muse.datasets.preprocess.data_augmentation import DataAugmentation
 
 from muse.envs.robosuite.robosuite_env import RobosuiteEnv
@@ -17,11 +17,14 @@ from attrdict import AttrDict as d
 
 from muse.utils.torch_utils import get_masked_augment_fn
 
-env_spec = modify_spec_prms(RobosuiteEnv.get_default_env_spec_params(square.export),
-                            include_mode=True, include_target_names=True)
-env_spec.names_shapes_limits_dtypes.append(("smooth_mode", (1,), (0, 255), np.uint8))
-env_spec.names_shapes_limits_dtypes.append(("mask", (1,), (0, 1), np.uint8))
-env_spec.wp_dynamics_fn = get_wp_dynamics_fn(fast_dynamics=True)
+
+def hydra_spec_mod(params):
+    env_spec = modify_spec_prms(RobosuiteEnv.get_default_env_spec_params(params),
+                                include_mode=True, include_target_names=True)
+    env_spec.names_shapes_limits_dtypes.append(("smooth_mode", (1,), (0, 255), np.uint8))
+    env_spec.names_shapes_limits_dtypes.append(("mask", (1,), (0, 1), np.uint8))
+    env_spec.wp_dynamics_fn = get_wp_dynamics_fn(fast_dynamics=True)
+    return env_spec
 
 
 export = d(
@@ -32,7 +35,7 @@ export = d(
     seed=0,
     dataset='mode_real2_v2_fast_human_square_30k_imgs',
     exp_name='hvsBlock3D/velact_{?seed:s{seed}_}{?augment:aug_}b{batch_size}_h{horizon}_{dataset}',
-    env_spec=env_spec,
+    env_spec=GroupField('env_train', hydra_spec_mod),
     env_train=square.export,
     model=hydra.export & d(
         device=F('device'),

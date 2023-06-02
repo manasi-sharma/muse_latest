@@ -108,7 +108,7 @@ class NpDataset(Dataset):
                                                                                                        self._env_spec,
                                                                                                        self))
             else:
-                assert isinstance(dp, DataPreprocessor)
+                assert isinstance(dp, DataPreprocessor), dp
             logger.debug(f"Dataset using preprocessor: {self._data_preprocessors[i].name}")
 
         # names to add to final_names (prepended by goal/ or param/), when loading (in case they were not saved in original dataset, e.g. goal conditioning).
@@ -118,7 +118,6 @@ class NpDataset(Dataset):
         self._index_all_keys = self._frozen and get_with_default(params, "index_all_keys", False)
         # if True, final names are loaded to "inputs", else "outputs".
         self._final_names_as_inputs = get_with_default(params, "final_names_as_inputs", True)
-
 
         # names that we want to load but are not in existing datadict
         self.temporary_names = []

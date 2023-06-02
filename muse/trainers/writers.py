@@ -3,6 +3,7 @@ from typing import List
 from attrdict.utils import get_with_default
 
 from muse.experiments import logger
+from muse.experiments.file_manager import ExperimentFileManager
 
 
 class Writer(object):
@@ -88,6 +89,19 @@ class WandbWriter(Writer):
         if self.tags:
             assert isinstance(self.tags, List), f"Tags {self.tags} must be a list!"
             logger.debug(f'[wandb] Using tags: {self.tags}')
+        if self.resume and self.force_id is None:
+            import wandb
+            # set the force id bc resuming with wandb is stupid
+            api = wandb.Api()
+            all_runs = api.runs(self.project_name)
+            found = False
+            # searching for the right run, not sure how to do this with query
+            for r in all_runs:
+                if r.name == self.exp_name:
+                    self.force_id = r.id
+                    found = True
+            if not found:
+                logger.warn('Could not find a run id but resume=True!')
 
     def open(self):
         import wandb

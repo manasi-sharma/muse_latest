@@ -10,6 +10,7 @@ from muse.envs.env import Env
 from muse.utils.file_utils import prepend_to_base_name
 from attrdict import AttrDict as d
 
+
 # TODO move this elsewhere
 class Utils:
     """ Utils base class, each module should experiment some options here """
@@ -101,3 +102,17 @@ def nsld_get_row(nsld, name):
         if row[0] == name:
             return row
     raise ValueError(name)
+
+
+def nsld_replace_row(nsld, name, new_row):
+    old_nsld = list(nsld)
+    found = False
+    for i, row in enumerate(old_nsld):
+        if row[0] == name:
+            del nsld[i]
+            found = True
+            break
+
+    assert found, f"Missing {name}"
+    nsld.append(new_row)
+    return nsld

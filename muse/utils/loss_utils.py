@@ -673,12 +673,12 @@ def laplace_smoothing(x, n_categories, eps=1e-5):
 
 
 class FocalLoss(nn.CrossEntropyLoss):
-    ''' Focal loss for classification tasks on imbalanced datasets
+    """ Focal loss for classification tasks on imbalanced datasets
     From: https://gist.github.com/f1recracker/0f564fd48f15a58f4b92b3eb3879149b
-    '''
+    """
 
-    def __init__(self, gamma, alpha=None, ignore_index=-100, reduction='none'):
-        super().__init__(weight=alpha, ignore_index=ignore_index, reduction='none')
+    def __init__(self, gamma, alpha=None, ignore_index=-100, reduction='none', label_smoothing=0.):
+        super().__init__(weight=alpha, ignore_index=ignore_index, reduction='none', label_smoothing=label_smoothing)
         self.reduction = reduction
         self.gamma = gamma
 

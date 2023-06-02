@@ -19,6 +19,9 @@ def get_normalized_quat(pose):
         q = pose[..., 3:7]
     elif pose.shape[-1] == 6:
         q = fast_euler2quat(pose[..., 3:]).astype(pose.dtype)
+    elif pose.shape[-1] == 9:
+        # rot 6d
+        q = mat2quat(rot6d2mat(pose[..., 3:])).astype(pose.dtype)
     else:
         raise NotImplementedError(str(pose.shape))
 

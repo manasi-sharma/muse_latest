@@ -2,7 +2,7 @@ import importlib
 import os
 from collections import OrderedDict
 from pydoc import locate
-from typing import List
+from typing import List, Iterable
 
 from attrdict import AttrDict as d
 

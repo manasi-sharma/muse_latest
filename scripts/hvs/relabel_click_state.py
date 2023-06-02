@@ -30,6 +30,7 @@ if __name__ == '__main__':
     parser.add_argument('--click_key', type=str, default='click_state')
     parser.add_argument('--add_click_to_input', action='store_true')
     parser.add_argument('--flip_imgs', action="store_true")
+    parser.add_argument('--y', action="store_true")
     parser.add_argument('--start_ep', type=int, default=0)  # which episode to start at
 
     # file_manager = ExperimentFileManager(params.exp_name, is_continue=True)
@@ -159,6 +160,6 @@ if __name__ == '__main__':
 
         dataset_out.add_episode(inputs, outputs)
 
-    do_save = query_string_from_set(f'Save to {dataset_out.save_dir}? (y/n)', ['y', 'n']) == 'y'
+    do_save = args.y or query_string_from_set(f'Save to {dataset_out.save_dir}? (y/n)', ['y', 'n']) == 'y'
     if do_save:
         dataset_out.save()

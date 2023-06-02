@@ -2,6 +2,7 @@ import numpy as np
 import torch
 
 from muse.envs.mode_param_spec import BiModalParamEnvSpec
+from muse.utils.config_utils import nsld_replace_row, nsld_get_row
 from muse.utils.general_utils import is_array
 from muse.utils.np_utils import clip_norm, clip_scale
 from muse.utils.torch_utils import to_numpy, to_torch, cat_any
@@ -15,6 +16,8 @@ GRIPPER_WIDTH_DELTA_TOL = 1e-3
 def parse_orientations(unnorm_out, targ_prefix):
     if f'{targ_prefix}orientation' in unnorm_out.list_leaf_keys():
         targ_quat = to_numpy(unnorm_out[f"{targ_prefix}orientation"], check=True)[:, 0]
+        if targ_quat.shape[-1] == 6:
+            targ_quat = T.mat2quat(T.rot6d2mat(targ_quat))
         targ_quat = targ_quat / (
                     np.linalg.norm(targ_quat, axis=-1, keepdims=True) + 1e-8)  # make sure quaternion is normalized
         targ_eul = T.fast_quat2euler(targ_quat)
@@ -47,6 +50,7 @@ def get_wp_dynamics_fn(fast_dynamics=True, no_ori=False, max_pos_vel=0.4, max_or
 
         # targ_pose can be either
         # - 6 dim (pos, ori_eul)
+        # - 9 dim (pos, rot_6d)
         # - 10 dim (pos, ori, ori_eul)
         pos = robot_pose[..., :3]
         dpos = (targ_pose[..., :3] - pos)
@@ -211,7 +215,7 @@ def get_rs_online_action_postproc_fn(**kwargs):
 def modify_spec_prms(prms, no_names=False, raw=False, minimal=False, no_reward=False, no_object=False,
                      include_click_state=False, include_mode=False,
                      include_real=False, include_target_names=False, include_target_gripper=False,
-                     include_policy_actions=True):
+                     include_policy_actions=True, target_rot6d=False):
     if no_names:
         prms.action_names.remove('policy_name')
 
@@ -261,6 +265,12 @@ def modify_spec_prms(prms, no_names=False, raw=False, minimal=False, no_reward=F
 
     if include_target_gripper:
         prms.action_names.extend(['target/gripper'])
+
+    if target_rot6d:
+        original_row = nsld_get_row(prms.names_shapes_limits_dtypes, 'target/orientation')
+        new_row = (original_row[0], (6,), original_row[2], original_row[3])
+        nsld_replace_row(prms.names_shapes_limits_dtypes, 'target/orientation',
+                         new_row)
 
     return prms
 

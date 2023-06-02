@@ -448,6 +448,34 @@ def numel(arr: Union[np.ndarray, torch.Tensor]):
         return arr.numel()
 
 
+def get_horizon_chunks(arr, horizon, start_idx, end_idx, dim, stack_dim=None, skip_horizon=1):
+    # (start, end) is inclusive
+    sh = list(arr.shape)
+    dim = dim % len(sh)
+    assert 0 <= dim < len(sh), [dim, sh]
+    start_idx = start_idx % sh[dim]
+    end_idx = end_idx % sh[dim]
+    assert sh[dim] >= end_idx + horizon >= start_idx + horizon >= horizon > 0, [dim, sh, horizon, start_idx, end_idx]
+
+    # chunkify!
+    if stack_dim is None:
+        stack_dim = dim
+    # print(start_idx, end_idx, horizon ,dim)
+    all = []
+    for i in range(start_idx, end_idx + 1, skip_horizon):
+        slc = [slice(None)] * len(sh)
+        slc[dim] = slice(i, i + horizon)
+        sliced = arr[tuple(slc)]
+        # print(sliced.shape)
+        all.append(sliced)
+
+    # new shape will be (sh[0], sh[1] ... S(stackdim) ... H(dim) ... sh[-2], sh[-1])
+    if isinstance(arr, torch.Tensor):
+        return torch.stack(all, dim=stack_dim)
+    else:
+        return np.stack(all, axis=stack_dim)
+
+
 ## others
 
 

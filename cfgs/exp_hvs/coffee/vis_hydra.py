@@ -26,6 +26,10 @@ export = d(
     ),
     env_train=polymetis_panda.export,
     model=vis_hydra.export & d(
+        vision_encoder=d(
+            image_shape=[240, 320, 3],
+            img_embed_size=128,
+        ),
         state_names=['ee_position', 'ee_orientation', 'gripper_pos'],
         goal_names=[],
         sparse_action_names=['target/ee_position', 'target/ee_orientation'],

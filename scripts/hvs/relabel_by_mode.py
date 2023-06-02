@@ -63,6 +63,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_out_group', type=str, default='dataset_out')
     parser.add_argument('--populate_mode0_actions', action='store_true')
     parser.add_argument('--populate_mode0_gripper', action='store_true')
+    parser.add_argument('--y', action='store_true')
     parser.add_argument('--relabel_states', action='store_true')
     parser.add_argument('--no_change', action='store_true', help='just relabels mode, optionally populates actions')
     parser.add_argument('--no_mode1_change', action='store_true', help='skips mode1 action relabel.')
@@ -366,6 +367,6 @@ if __name__ == '__main__':
     logger.debug(f"Old dataset length: {len(dataset_input)}, num eps: {dataset_input.get_num_episodes()}")
     logger.debug(f"New dataset length: {len(dataset_out)}, num eps: {dataset_out.get_num_episodes()}")
 
-    do_save = query_string_from_set(f'Save to {dataset_out.save_dir}? (y/n)', ['y', 'n']) == 'y'
+    do_save = local_args.y or query_string_from_set(f'Save to {dataset_out.save_dir}? (y/n)', ['y', 'n']) == 'y'
     if do_save:
         dataset_out.save()

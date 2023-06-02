@@ -9,7 +9,7 @@ import traceback
 from collections import defaultdict
 from numbers import Number
 from types import LambdaType
-from typing import Dict
+from typing import Dict, Iterable
 
 import numpy as np
 import torch

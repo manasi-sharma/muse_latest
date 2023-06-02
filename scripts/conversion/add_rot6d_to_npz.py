@@ -21,6 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('--suffix', type=str, default='',
                         help='Suffix to add to key. Default will overwrite existing key')
     parser.add_argument('--output_file', type=str, required=True, help='NPZ file to save to')
+    parser.add_argument('--y', action='store_true')
     args = parser.parse_args()
 
     logger.debug(f"Loading {args.file}...")
@@ -40,7 +41,7 @@ if __name__ == '__main__':
     logger.debug(f"New shapes:")
     dc.leaf_shapes().pprint()
 
-    do_save = query_string_from_set(f'Save to {args.output_file}? (y/n)', ['y', 'n']) == 'y'
+    do_save = args.y or query_string_from_set(f'Save to {args.output_file}? (y/n)', ['y', 'n']) == 'y'
     if do_save:
         logger.warn('Saving...')
         np.savez_compressed(args.output_file, **dc.as_dict())
