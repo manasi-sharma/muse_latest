@@ -118,12 +118,12 @@ class DiffusionPolicyModel(Model):
     def parallel_conditional_sample(self,
                            condition_data, condition_mask,
                            local_cond=None, global_cond=None,
-                           generator=None, parallel=20, tolerance=0.1,
-                           ):
+                           generator=None):
         scheduler = self.noise_scheduler
         scheduler.set_timesteps(self.num_inference_steps, device=condition_data.device)
 
-        parallel = min(parallel, len(scheduler.timesteps))
+        parallel = min(scheduler._parallel_batch_size, len(scheduler.timesteps))
+        tolerance = scheduler._parallel_tolerance
 
         # make sure arguments are valid
         assert scheduler._is_parallel_scheduler
