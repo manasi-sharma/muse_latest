@@ -6,7 +6,7 @@ from multiprocessing.managers import SyncManager
 
 import cloudpickle
 import numpy as np
-import resource
+"""import resource"""
 
 from attrdict import AttrDict
 
@@ -84,5 +84,5 @@ def memory_usage_psutil():
     return mem
     # return psutil.virtual_memory().used / float(2 ** 20)
 
-def memory_usage_resource():
-    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / float(2 ** 20)
+"""def memory_usage_resource():
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / float(2 ** 20)"""

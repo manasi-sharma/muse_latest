@@ -10,9 +10,8 @@ from muse.utils.general_utils import timeit
 from attrdict import AttrDict
 from attrdict.utils import get_with_default
 
-if 'DISPLAY' not in os.environ.keys():
-    os.environ['SDL_VIDEODRIVER'] = "dummy"
-
+"""if 'DISPLAY' not in os.environ.keys():
+    os.environ['SDL_VIDEODRIVER'] = "dummy" """
 
 class PygameDisplay(object):
     def __init__(self, params):
@@ -30,6 +29,7 @@ class PygameDisplay(object):
 
     def create_display(self):
         assert not pygame.get_init()
+        
         pygame.init()
         pygame.font.init()
         self.screen = pygame.display.set_mode((self.W, self.H))

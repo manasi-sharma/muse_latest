@@ -23,7 +23,6 @@ from attrdict import AttrDict
 from attrdict.utils import get_with_default
 from muse.utils.torch_utils import to_numpy
 
-
 class BlockEnv2D(Env):
     """
     BLOCK MAZE ENVIRONMENT, 2D
@@ -115,7 +114,7 @@ class BlockEnv2D(Env):
         self.keep_in_bounds = get_with_default(params, "keep_in_bounds", False)
 
         self._t = 0
-        self._horizon = get_with_default(params, "horizon", np.float("inf"))
+        self._horizon = get_with_default(params, "horizon", float("inf"))
         self.realtime = get_with_default(params, "realtime", self.render)
         self.disable_images = get_with_default(params, "disable_images", False)
         if self.disable_images:
@@ -142,7 +141,7 @@ class BlockEnv2D(Env):
 
         self._teleop_fn = get_with_default(params, "teleop_fn", teleop_functions.get_pygame_mouse_teleop_fn())
 
-        self._done_on_success = get_with_default(params, "done_on_success", False)
+        self._done_on_success = get_with_default(params, "done_on_success", True) #False)
 
     def _init_setup(self):
         self.extra_memory = AttrDict()
@@ -354,6 +353,7 @@ class BlockEnv2D(Env):
 
     def create_render(self):
         pygame.init()
+        pygame.display.init()
         self.screen = pygame.display.set_mode(np.ceil(self.grid_size).astype(int))
         self.clock = pygame.time.Clock()
         pymunk.pygame_util.positive_y_is_up = True
@@ -678,6 +678,20 @@ class BlockEnv2D(Env):
         if self._t >= self._horizon:
             done = np.array([True])
 
+        #import pdb;pdb.set_trace()
+        #print("my body: ", self.world.bodies[2].position)
+        # print("block 1: ", self.world.bodies[0].position)
+        # print("block 2: ", self.world.bodies[1].position)
+        #print("self.slider_x_center: ", self.slider_x_center)
+        #print("self.slider_x_range: ", self.slider_x_range)
+        #print("block env: self.xleft: ", (self.slider_x_center + np.asarray([self.slider_x_range[0], 0]))[0])
+        #print("block env: block 1: ", self.world.bodies[0].position[0])
+        #print()
+        # print("self.xright: ", self.slider_x_center + np.asarray([self.slider_x_range[1], 0]))
+        # print("self.yleft: ", self.slider_y_center + np.asarray([0, self.slider_y_range[0]]))
+        # print("self.yright: ", self.slider_y_center + np.asarray([0, self.slider_y_range[1]]))
+        #print()
+
         if self._done_on_success and (self.is_success() or self._stop_counter > 0):
             self._stop_counter += 1
             # stop after success and + N-1 additional steps
@@ -864,7 +878,6 @@ class BlockEnv2D(Env):
 
 
 if __name__ == "__main__":
-
     params = AttrDict(
         render=True,
         realtime=True,

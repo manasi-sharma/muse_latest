@@ -18,6 +18,8 @@ from pymunk.vec2d import Vec2d
 import pymunk.pygame_util
 import shapely.geometry as sg
 
+import time
+
 
 def pymunk_to_shapely(body, shapes):
     geoms = list()
@@ -489,5 +491,6 @@ if __name__ == '__main__':
     while not done[0]:
         action = env.env_spec.get_uniform(env.env_spec.action_names, 1)
         obs, goal, done = env.step(action)
+        time.sleep(0.3)
 
     logger.debug('Done.')

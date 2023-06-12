@@ -232,7 +232,7 @@ class NpDataset(Dataset):
         for key in self._onetime_names:
             onetime_dict[key] = np.empty([0] + list(self._env_spec.names_to_shapes[key]),
                                          dtype=self._env_spec.names_to_dtypes[key])  # empty to begin
-        split_indices = np.array([], dtype=np.long)
+        split_indices = np.array([], dtype=int)
 
         return local_dict, onetime_dict, split_indices
 

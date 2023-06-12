@@ -48,6 +48,9 @@ def rollout(local_args, local_policy, local_env, local_model, local_obs, local_g
     local_goal_history = []
     local_ac_history = []
 
+    local_language_commands = []
+    high_level_language_commands = []
+
     while not done[0] and (not early_terminate_fn or not early_terminate_fn(local_env, local_obs, local_goal)):
         # empty axes for (batch_size, horizon)
         expanded_obs = local_obs.leaf_apply(lambda arr: arr[:, None])
@@ -57,10 +60,14 @@ def rollout(local_args, local_policy, local_env, local_model, local_obs, local_g
             if local_args.random_policy:
                 action = local_policy.get_random_action(local_model, expanded_obs, expanded_goal)
             else:
+                #action, change_flag = local_policy.get_action(local_model, expanded_obs, expanded_goal)
                 action = local_policy.get_action(local_model, expanded_obs, expanded_goal)
 
             if i == 0 and local_args.print_policy_name and action.has_leaf_key("policy_name"):
                 logger.info(f"Policy: {action.policy_name.item()}")
+
+        # if change_flag is not None:
+        #     pass
 
         # only keep arrays -> to numpy
         local_obs_history.append(local_obs.leaf_arrays().leaf_apply(lambda arr: to_numpy(arr, check=True)))
@@ -193,7 +200,7 @@ if __name__ == '__main__':
     parser.add_argument('config', type=str)
     parser.add_argument('--max_steps', type=int, default=None)
     parser.add_argument('--max_eps', type=int, default=None)
-    parser.add_argument('--capacity', type=int, default=1e6,
+    parser.add_argument('--capacity', type=int, default=1e5,
                         help='if max_steps is not None, will use whatever is smaller (2*max_steps) or this')
     parser.add_argument('--model_file', type=str, default=None)
     parser.add_argument('--save_file', type=str, required=True)
@@ -228,7 +235,7 @@ if __name__ == '__main__':
     exp_name = root.get_exp_name()
 
     exit_on_ctrl_c()
-    file_manager = ExperimentFileManager(exp_name, is_continue=True)
+    file_manager = ExperimentFileManager(exp_name, is_continue= True) #True) #False) #True)
 
     if args.model_file is not None:
         model_fname = args.model_file
@@ -263,8 +270,9 @@ if __name__ == '__main__':
     # restore model from file (if provided)
     if not args.no_model_file:
         model.restore_from_file(model_fname)
-
-    model.eval()
+        model.eval()
+    else:
+        model = None
 
     logger.debug("Beginning Evaluation.")
 
@@ -274,10 +282,11 @@ if __name__ == '__main__':
     first_to_save_ep = 0
     all_returns = []
     while not terminate_fn(step, ep):
+        print(step, ep)
         logger.info(f"[{step}] Rolling out episode {ep}...")
 
         obs, goal = env.reset()
-        policy.reset_policy(next_obs=obs, next_goal=goal)
+        policy.reset_policy(next_obs=obs, next_goal=goal, slider_x_center=env.slider_x_center, slider_x_range=env.slider_x_range)
 
         obs_history, goal_history, ac_history, returns = rollout(args, policy, env, model, obs, goal)
 

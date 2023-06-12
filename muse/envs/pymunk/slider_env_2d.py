@@ -74,7 +74,11 @@ class SliderBlockEnv2D(BlockEnv2D):
         while i < max_iters and np.linalg.norm(b_ego - b1) < 1.5 * self.block_size or np.linalg.norm(b_ego - b2) < 1.5 * self.block_size:
             b_ego = np.random.uniform([0, 0], self.grid_size - self.block_size, 2)
             i += 1
-
+        
+        b_ego = np.array([160, 160]) #np.array([65, 160])
+        b1 = np.array([101.98090031142368, b1[1]])
+        #101.98090031142368
+        
         if self.num_blocks == 1:
             return np.stack([b1, b_ego])
         else:
@@ -97,6 +101,22 @@ class SliderBlockEnv2D(BlockEnv2D):
     #     # TODO
     #     su
 
+    def is_success(self) -> bool:
+        """ Returns if the environment reached a success criteria.
+
+        Only valid in environments that have a single known success metric.
+        TODO: otherwise use muse.task or muse.reward
+
+        Returns
+        -------
+
+        """
+        xleft = self.slider_x_center + np.asarray([self.slider_x_range[0], 0])
+        epsilon = 1
+        if abs(self.world.bodies[0].position[0] - xleft[0]) <= epsilon:
+            return True
+        return False
+    
 
 if __name__ == '__main__':
     env_params = AttrDict(
