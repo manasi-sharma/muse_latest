@@ -123,6 +123,7 @@ def parse_history(spec, local_obs_history, local_goal_history, local_ac_history)
 
     # inputs are just the obs / goals / actions
     local_inputs = obs & goals & acs
+    import pdb;pdb.set_trace()
     # parse outputs from next obs / next goal
     local_outputs = d()
     raw_outputs = out_obs & out_goals
@@ -130,10 +131,12 @@ def parse_history(spec, local_obs_history, local_goal_history, local_ac_history)
                            spec.output_observation_names + spec.output_goal_names):
         local_outputs[mapped_k] = raw_outputs[k]
 
+    import pdb;pdb.set_trace()
     # extra keys for outputs (done and rollout_timestep)
     local_outputs.done = np.zeros(len(local_ac_history), dtype=bool)
     local_outputs.done[-1] = True
     local_outputs.rollout_timestep = np.arange(len(local_ac_history))
+    import pdb;pdb.set_trace()
 
     return local_inputs, local_outputs
 
@@ -298,6 +301,7 @@ if __name__ == '__main__':
             all_returns.append(returns)
 
             # actually add to dataset
+            import pdb;pdb.set_trace()
             dataset_save.add_episode(inputs, outputs)
 
             if is_next_cycle(ep, args.save_every_n_episodes):

@@ -859,17 +859,31 @@ class BlockEnv2D(Env):
             ("action", (3,), ((-grid_size / 10.).tolist() + [0], (grid_size / 10.).tolist() + [500.]), np.float32),
         ]
 
-        prms = AttrDict(
-            cls=ParamEnvSpec,
-            names_shapes_limits_dtypes=nsld,
-            output_observation_names=[],
-            observation_names=['image', 'position', 'velocity', 'block_positions', 'block_velocities', 'bounding_box',
-                               'block_bounding_boxes'],
-            action_names=['action'],
-            goal_names=[],
-            param_names=['maze'],
-            final_names=[],
-        )
+        _block_bbox = get_with_default(params, "block_bbox", False)
+
+        if _block_bbox:
+            prms = AttrDict(
+                cls=ParamEnvSpec,
+                names_shapes_limits_dtypes=nsld,
+                output_observation_names=[],
+                observation_names=['image', 'position', 'velocity', 'block_positions', 'block_velocities', 'bounding_box',
+                                    'block_bounding_boxes'],
+                action_names=['action'],
+                goal_names=[],
+                param_names=['maze'],
+                final_names=[],
+            )
+        else:
+            prms = AttrDict(
+                cls=ParamEnvSpec,
+                names_shapes_limits_dtypes=nsld,
+                output_observation_names=[],
+                observation_names=['image', 'position', 'velocity', 'block_positions', 'block_velocities'],
+                action_names=['action'],
+                goal_names=[],
+                param_names=['maze'],
+                final_names=[],
+            )
 
         if disable_imgs:
             prms.observation_names.remove('image')
